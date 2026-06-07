@@ -1,0 +1,651 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Install Base Team Dashboard</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #0f1117; color: #e2e8f0; min-height: 100vh; }
+
+  header { background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%); padding: 24px 32px; border-bottom: 1px solid #334155; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; }
+  header h1 { font-size: 22px; font-weight: 700; color: #f1f5f9; letter-spacing: -0.3px; }
+  header p { font-size: 13px; color: #64748b; margin-top: 3px; }
+  .filter-bar { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+  .filter-bar label { font-size: 13px; color: #94a3b8; }
+  select { background: #1e293b; border: 1px solid #334155; color: #e2e8f0; padding: 6px 12px; border-radius: 8px; font-size: 13px; cursor: pointer; }
+  select:focus { outline: none; border-color: #6366f1; }
+
+  .main { padding: 24px 32px; max-width: 1400px; margin: 0 auto; }
+
+  /* KPI Cards */
+  .kpi-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 24px; }
+  .kpi { background: #1e293b; border: 1px solid #334155; border-radius: 12px; padding: 20px 24px; position: relative; overflow: hidden; }
+  .kpi::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px; }
+  .kpi.blue::before { background: linear-gradient(90deg, #6366f1, #8b5cf6); }
+  .kpi.green::before { background: linear-gradient(90deg, #10b981, #34d399); }
+  .kpi.amber::before { background: linear-gradient(90deg, #f59e0b, #fbbf24); }
+  .kpi.rose::before { background: linear-gradient(90deg, #f43f5e, #fb7185); }
+  .kpi-label { font-size: 12px; color: #64748b; text-transform: uppercase; letter-spacing: 0.8px; font-weight: 600; margin-bottom: 8px; }
+  .kpi-value { font-size: 32px; font-weight: 800; color: #f1f5f9; line-height: 1; }
+  .kpi-sub { font-size: 12px; color: #94a3b8; margin-top: 6px; }
+
+  /* Chart grid */
+  .chart-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 20px; }
+  .chart-full { grid-column: 1 / -1; }
+  .card { background: #1e293b; border: 1px solid #334155; border-radius: 12px; padding: 20px 24px; margin-bottom: 20px; }
+  .card h2 { font-size: 14px; font-weight: 600; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.6px; margin-bottom: 16px; display: flex; align-items: center; gap: 8px; }
+  .chart-wrap { position: relative; height: 280px; }
+  .chart-wrap-tall { position: relative; height: 320px; }
+
+  /* Tabs */
+  .tabs { display: flex; gap: 4px; margin-bottom: 16px; flex-wrap: wrap; }
+  .tab { padding: 6px 16px; border-radius: 8px; font-size: 13px; font-weight: 500; cursor: pointer; border: 1px solid transparent; color: #64748b; transition: all 0.15s; }
+  .tab.active { background: #334155; color: #e2e8f0; border-color: #475569; }
+  .tab:hover:not(.active) { color: #94a3b8; }
+
+  /* Bar rows */
+  .month-bar { display: flex; align-items: center; gap: 10px; margin-bottom: 6px; }
+  .month-bar-label { font-size: 12px; color: #94a3b8; width: 150px; flex-shrink: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .month-bar-track { flex: 1; background: #334155; border-radius: 4px; height: 20px; overflow: hidden; }
+  .month-bar-fill { height: 100%; border-radius: 4px; transition: width 0.4s ease; }
+  .month-bar-count { font-size: 12px; color: #e2e8f0; font-weight: 600; width: 40px; text-align: right; }
+
+  /* Heatmap */
+  .heatmap { width: 100%; border-collapse: collapse; font-size: 12px; }
+  .heatmap th { color: #64748b; font-weight: 600; padding: 8px 12px; text-align: left; border-bottom: 1px solid #334155; font-size: 11px; text-transform: uppercase; }
+  .heatmap td { padding: 10px 12px; border-bottom: 1px solid #1e293b; }
+  .heatmap tr:last-child td { border-bottom: none; }
+  .heatmap .user-cell { font-weight: 600; color: #e2e8f0; }
+  .heatmap .count-cell { text-align: right; border-radius: 6px; font-weight: 600; font-size: 13px; }
+  .heatmap tr:hover td { background: #273447; }
+
+  /* Drill-down panel */
+  #drillPanel { display: none; background: #162032; border: 1px solid #6366f1; border-radius: 14px; padding: 24px; margin-bottom: 20px; }
+  #drillPanel.visible { display: block; }
+  .drill-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+  .drill-title { font-size: 18px; font-weight: 700; color: #f1f5f9; }
+  .drill-subtitle { font-size: 13px; color: #64748b; margin-top: 2px; }
+  .drill-close { background: #334155; border: none; color: #94a3b8; width: 28px; height: 28px; border-radius: 8px; cursor: pointer; font-size: 16px; display: flex; align-items: center; justify-content: center; }
+  .drill-close:hover { color: #f1f5f9; background: #475569; }
+  .drill-kpis { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 20px; }
+  .drill-kpi { background: #1e293b; border-radius: 10px; padding: 14px 18px; position: relative; overflow: hidden; }
+  .drill-kpi::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px; }
+  .drill-charts { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px; }
+  .drill-card { background: #1e293b; border-radius: 10px; padding: 16px 18px; }
+  .drill-card h3 { font-size: 12px; font-weight: 600; color: #64748b; text-transform: uppercase; letter-spacing: 0.6px; margin-bottom: 12px; }
+
+  /* Subcategory panel */
+  #subPanel { display: none; background: #0f1d2e; border: 1px solid #10b981; border-radius: 14px; padding: 24px; margin-bottom: 20px; }
+  #subPanel.visible { display: block; }
+  .sub-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; }
+  .sub-title { font-size: 16px; font-weight: 700; color: #f1f5f9; }
+  .sub-note { font-size: 12px; color: #64748b; margin-bottom: 16px; }
+  .sub-close { background: #334155; border: none; color: #94a3b8; width: 28px; height: 28px; border-radius: 8px; cursor: pointer; font-size: 16px; display: flex; align-items: center; justify-content: center; }
+  .sub-close:hover { color: #f1f5f9; background: #475569; }
+  .sub-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .sub-card { background: #1e293b; border-radius: 10px; padding: 16px 18px; }
+  .sub-card h3 { font-size: 12px; font-weight: 600; color: #64748b; text-transform: uppercase; letter-spacing: 0.6px; margin-bottom: 12px; }
+  .sub-chart-wrap { position: relative; height: 240px; }
+  .badge { display: inline-block; background: #10b981; color: #fff; font-size: 10px; font-weight: 700; padding: 2px 8px; border-radius: 20px; text-transform: uppercase; letter-spacing: 0.5px; }
+
+  #monthlyChart { cursor: pointer; }
+</style>
+</head>
+<body>
+
+<header>
+  <div>
+    <h1>📊 Install Base Team Dashboard</h1>
+    <p>ServiceNow tickets · Jan 2023 – Jun 2026 · 22,070 total</p>
+  </div>
+  <div class="filter-bar">
+    <label>Year</label>
+    <select id="yearFilter" onchange="updateCharts()">
+      <option value="all">All Time</option>
+      <option value="2023">2023</option>
+      <option value="2024">2024</option>
+      <option value="2025">2025</option>
+      <option value="2026">2026</option>
+    </select>
+    <label style="margin-left:8px">Zoom into month</label>
+    <select id="monthPicker" onchange="openDrill(this.value)">
+      <option value="">— pick a month —</option>
+    </select>
+  </div>
+</header>
+
+<div class="main">
+
+  <!-- Drill-down Panel -->
+  <div id="drillPanel">
+    <div class="drill-header">
+      <div>
+        <div class="drill-title" id="drillTitle"></div>
+        <div class="drill-subtitle" id="drillSubtitle"></div>
+      </div>
+      <button class="drill-close" onclick="closeDrill()">✕</button>
+    </div>
+    <div class="drill-kpis">
+      <div class="drill-kpi kpi blue"><div class="kpi-label">Total Tickets</div><div class="kpi-value" id="drill-total"></div></div>
+      <div class="drill-kpi kpi green"><div class="kpi-label">vs Prior Month</div><div class="kpi-value" id="drill-delta"></div><div class="kpi-sub" id="drill-delta-sub"></div></div>
+      <div class="drill-kpi kpi rose"><div class="kpi-label">Top Assignee</div><div class="kpi-value" style="font-size:16px;padding-top:6px" id="drill-top"></div><div class="kpi-sub" id="drill-top-count"></div></div>
+    </div>
+    <div class="drill-charts">
+      <div class="drill-card">
+        <h3>By Assignee</h3>
+        <div id="drillUserBars"></div>
+      </div>
+      <div class="drill-card">
+        <h3>By Category <span style="font-size:10px;color:#6366f1;margin-left:6px">click to see subcategories</span></h3>
+        <div id="drillCatBars"></div>
+      </div>
+    </div>
+    <!-- Subcategory section within drill -->
+    <div id="drillSubSection" style="display:none">
+      <div class="drill-card" style="border: 1px solid #10b98140;">
+        <h3 id="drillSubTitle" style="color:#10b981"></h3>
+        <div id="drillSubBars"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Subcategory Panel (standalone) -->
+  <div id="subPanel">
+    <div class="sub-header">
+      <div class="sub-title" id="subTitle"></div>
+      <button class="sub-close" onclick="closeSubPanel()">✕</button>
+    </div>
+    <div class="sub-note" id="subNote"></div>
+    <div class="sub-grid">
+      <div class="sub-card">
+        <h3>Overall Subcategory Breakdown</h3>
+        <div id="subBarsList"></div>
+      </div>
+      <div class="sub-card">
+        <h3>Subcategory Trend by Month</h3>
+        <div class="sub-chart-wrap"><canvas id="subTrendChart"></canvas></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- KPIs -->
+  <div class="kpi-grid">
+    <div class="kpi blue">
+      <div class="kpi-label">Total Tickets</div>
+      <div class="kpi-value" id="kpi-total">22,070</div>
+      <div class="kpi-sub">Jan 2023 – Jun 2026</div>
+    </div>
+    <div class="kpi green">
+      <div class="kpi-label">Closed</div>
+      <div class="kpi-value" id="kpi-closed">21,983</div>
+      <div class="kpi-sub" id="kpi-closed-pct">99.6% closure rate</div>
+    </div>
+    <div class="kpi amber">
+      <div class="kpi-label">Open / Active</div>
+      <div class="kpi-value" id="kpi-open">59</div>
+      <div class="kpi-sub">New · WIP · On Hold</div>
+    </div>
+    <div class="kpi rose">
+      <div class="kpi-label">Top Assignee</div>
+      <div class="kpi-value" style="font-size:20px;padding-top:6px" id="kpi-top">Kenny Kruger</div>
+      <div class="kpi-sub" id="kpi-top-count">13,389 tickets (60.7%)</div>
+    </div>
+  </div>
+
+  <!-- Monthly Volume -->
+  <div class="card chart-full">
+    <h2>Monthly Ticket Volume</h2>
+    <div class="tabs">
+      <div class="tab active" onclick="setMonthlyMode('total', this)">Total</div>
+      <div class="tab" onclick="setMonthlyMode('byUser', this)">By Assignee</div>
+      <div class="tab" onclick="setMonthlyMode('byCategory', this)">By Category</div>
+    </div>
+    <div class="chart-wrap-tall">
+      <canvas id="monthlyChart"></canvas>
+    </div>
+  </div>
+
+  <div class="chart-grid">
+    <!-- Category breakdown -->
+    <div class="card" style="margin-bottom:0">
+      <h2>Tickets by Category <span class="badge">click for subcategories</span></h2>
+      <div class="chart-wrap">
+        <canvas id="catChart"></canvas>
+      </div>
+    </div>
+    <!-- Assignee breakdown -->
+    <div class="card" style="margin-bottom:0">
+      <h2>Tickets by Assignee</h2>
+      <div class="chart-wrap">
+        <canvas id="userChart"></canvas>
+      </div>
+    </div>
+  </div>
+
+  <!-- Heatmap -->
+  <div class="card">
+    <h2>Workload by Assignee × Category</h2>
+    <table class="heatmap" id="heatmapTable"></table>
+  </div>
+
+  <!-- Time Worked -->
+  <div class="card">
+    <h2>⏱ Time Worked</h2>
+    <div class="tabs">
+      <div class="tab active" onclick="setTWMode('cat_hrs', this)">Total Hours by Category</div>
+      <div class="tab" onclick="setTWMode('cat_avg', this)">Avg Min/Ticket by Category</div>
+      <div class="tab" onclick="setTWMode('user_hrs', this)">Hours by Assignee</div>
+      <div class="tab" onclick="setTWMode('monthly', this)">Monthly Trend</div>
+    </div>
+    <div id="twBarSection">
+      <p style="font-size:12px;color:#475569;margin-bottom:10px" id="twBarHint"></p>
+      <div id="twBars"></div>
+    </div>
+    <div id="twChartSection" style="display:none">
+      <div class="chart-wrap-tall"><canvas id="twChart"></canvas></div>
+    </div>
+    <!-- Subcategory breakdown within time worked -->
+    <div id="twSubSection" style="display:none; margin-top:16px; background:#0f1d2e; border:1px solid #10b98140; border-radius:10px; padding:16px;">
+      <h3 id="twSubTitle" style="font-size:12px;font-weight:600;color:#10b981;text-transform:uppercase;letter-spacing:0.6px;margin-bottom:12px;"></h3>
+      <div class="sub-grid">
+        <div>
+          <p style="font-size:11px;color:#475569;margin-bottom:8px">Total Hours</p>
+          <div id="twSubHrsBars"></div>
+        </div>
+        <div>
+          <p style="font-size:11px;color:#475569;margin-bottom:8px">Avg Min / Ticket</p>
+          <div id="twSubAvgBars"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+const DATA = {"monthly": {"2023-01": 536, "2023-02": 500, "2023-03": 493, "2023-04": 450, "2023-05": 469, "2023-06": 517, "2023-07": 516, "2023-08": 559, "2023-09": 419, "2023-10": 520, "2023-11": 520, "2023-12": 505, "2024-01": 564, "2024-02": 505, "2024-03": 535, "2024-04": 472, "2024-05": 477, "2024-06": 514, "2024-07": 511, "2024-08": 474, "2024-09": 498, "2024-10": 553, "2024-11": 509, "2024-12": 616, "2025-01": 576, "2025-02": 529, "2025-03": 570, "2025-04": 481, "2025-05": 498, "2025-06": 554, "2025-07": 574, "2025-08": 527, "2025-09": 647, "2025-10": 597, "2025-11": 619, "2025-12": 624, "2026-01": 672, "2026-02": 597, "2026-03": 610, "2026-04": 568, "2026-05": 487, "2026-06": 108}, "monthly_by_user": {"2023-01": {"Cheryl De La Rosa": 306, "Curtis Kinoshita": 58, "Ally Baker": 164, "Kenny Kruger": 8}, "2023-02": {"Cheryl De La Rosa": 250, "Ally Baker": 173, "Curtis Kinoshita": 11, "Kenny Kruger": 66}, "2023-03": {"Curtis Kinoshita": 40, "Cheryl De La Rosa": 354, "Kenny Kruger": 86, "Ally Baker": 13}, "2023-04": {"Cheryl De La Rosa": 252, "Curtis Kinoshita": 20, "Kenny Kruger": 142, "Ally Baker": 35, "Other": 1}, "2023-05": {"Cheryl De La Rosa": 322, "Ally Baker": 34, "Curtis Kinoshita": 14, "Kenny Kruger": 99}, "2023-06": {"Curtis Kinoshita": 34, "Ally Baker": 155, "Kenny Kruger": 102, "Cheryl De La Rosa": 225, "Other": 1}, "2023-07": {"Curtis Kinoshita": 23, "Cheryl De La Rosa": 276, "Kenny Kruger": 136, "Ally Baker": 81}, "2023-08": {"Cheryl De La Rosa": 210, "Ally Baker": 193, "Curtis Kinoshita": 28, "Kenny Kruger": 128}, "2023-09": {"Kenny Kruger": 136, "Cheryl De La Rosa": 58, "Ally Baker": 193, "Curtis Kinoshita": 29, "Other": 3}, "2023-10": {"Cheryl De La Rosa": 30, "Kenny Kruger": 197, "Ally Baker": 272, "Curtis Kinoshita": 21}, "2023-11": {"Kenny Kruger": 221, "Curtis Kinoshita": 21, "Ally Baker": 264, "Cheryl De La Rosa": 14}, "2023-12": {"Curtis Kinoshita": 74, "Ally Baker": 225, "Kenny Kruger": 205, "Other": 1}, "2024-01": {"Kenny Kruger": 212, "Ally Baker": 241, "Curtis Kinoshita": 110, "Cheryl De La Rosa": 1}, "2024-02": {"Kenny Kruger": 230, "Ally Baker": 212, "Curtis Kinoshita": 16, "Faiza Haque": 7, "Janice Ricci": 7, "Sharon Cabrera": 7, "Cheryl De La Rosa": 26}, "2024-03": {"Curtis Kinoshita": 47, "Kenny Kruger": 299, "Cheryl De La Rosa": 13, "Ally Baker": 46, "Janice Ricci": 40, "Faiza Haque": 44, "Sharon Cabrera": 46}, "2024-04": {"Curtis Kinoshita": 23, "Kenny Kruger": 375, "Cheryl De La Rosa": 2, "Ally Baker": 56, "Sharon Cabrera": 6, "Faiza Haque": 5, "Janice Ricci": 5}, "2024-05": {"Kenny Kruger": 388, "Ally Baker": 54, "Curtis Kinoshita": 20, "Other": 2, "Cheryl De La Rosa": 1, "Sharon Cabrera": 4, "Faiza Haque": 4, "Janice Ricci": 4}, "2024-06": {"Kenny Kruger": 435, "Curtis Kinoshita": 19, "Ally Baker": 40, "Cheryl De La Rosa": 7, "Other": 1, "Faiza Haque": 6, "Janice Ricci": 6}, "2024-07": {"Kenny Kruger": 386, "Cheryl De La Rosa": 20, "Curtis Kinoshita": 25, "Ally Baker": 45, "Janice Ricci": 25, "Sharon Cabrera": 4, "Other": 1, "Faiza Haque": 5}, "2024-08": {"Curtis Kinoshita": 17, "Kenny Kruger": 376, "Cheryl De La Rosa": 39, "Ally Baker": 28, "Janice Ricci": 9, "Sharon Cabrera": 5}, "2024-09": {"Kenny Kruger": 377, "Other": 2, "Ally Baker": 53, "Curtis Kinoshita": 8, "Faiza Haque": 16, "Cheryl De La Rosa": 20, "Janice Ricci": 18, "Sharon Cabrera": 4}, "2024-10": {"Kenny Kruger": 475, "Curtis Kinoshita": 13, "Ally Baker": 24, "Cheryl De La Rosa": 40, "Sharon Cabrera": 1}, "2024-11": {"Kenny Kruger": 380, "Curtis Kinoshita": 26, "Ally Baker": 23, "Other": 2, "Sharon Cabrera": 7, "Cheryl De La Rosa": 62, "Faiza Haque": 5, "Janice Ricci": 4}, "2024-12": {"Other": 4, "Ally Baker": 65, "Curtis Kinoshita": 15, "Kenny Kruger": 402, "Sharon Cabrera": 20, "Janice Ricci": 22, "Faiza Haque": 12, "Cheryl De La Rosa": 76}, "2025-01": {"Ally Baker": 145, "Kenny Kruger": 297, "Other": 2, "Curtis Kinoshita": 14, "Janice Ricci": 20, "Cheryl De La Rosa": 73, "Faiza Haque": 8, "Sharon Cabrera": 17}, "2025-02": {"Kenny Kruger": 479, "Curtis Kinoshita": 6, "Other": 1, "Ally Baker": 31, "Cheryl De La Rosa": 10, "Faiza Haque": 2}, "2025-03": {"Kenny Kruger": 496, "Curtis Kinoshita": 14, "Ally Baker": 32, "Faiza Haque": 5, "Cheryl De La Rosa": 22, "Other": 1}, "2025-04": {"Curtis Kinoshita": 15, "Kenny Kruger": 429, "Faiza Haque": 6, "Ally Baker": 24, "Janice Ricci": 4, "Cheryl De La Rosa": 3}, "2025-05": {"Kenny Kruger": 419, "Curtis Kinoshita": 10, "Cheryl De La Rosa": 4, "Ally Baker": 30, "Faiza Haque": 29, "Janice Ricci": 6}, "2025-06": {"Kenny Kruger": 475, "Curtis Kinoshita": 7, "Faiza Haque": 68, "Janice Ricci": 3, "Other": 1}, "2025-07": {"Curtis Kinoshita": 9, "Kenny Kruger": 503, "Cheryl De La Rosa": 10, "Janice Ricci": 8, "Faiza Haque": 43, "Other": 1}, "2025-08": {"Kenny Kruger": 470, "Curtis Kinoshita": 9, "Cheryl De La Rosa": 26, "Ally Baker": 8, "Janice Ricci": 4, "Faiza Haque": 10}, "2025-09": {"Kenny Kruger": 522, "Ally Baker": 25, "Cheryl De La Rosa": 23, "Curtis Kinoshita": 12, "Faiza Haque": 58, "Other": 1, "Janice Ricci": 6}, "2025-10": {"Kenny Kruger": 515, "Other": 1, "Curtis Kinoshita": 7, "Faiza Haque": 27, "Ally Baker": 33, "Janice Ricci": 6, "Cheryl De La Rosa": 8}, "2025-11": {"Curtis Kinoshita": 24, "Kenny Kruger": 494, "Faiza Haque": 62, "Cheryl De La Rosa": 30, "Ally Baker": 1, "Janice Ricci": 8}, "2025-12": {"Kenny Kruger": 487, "Cheryl De La Rosa": 28, "Other": 1, "Curtis Kinoshita": 12, "Janice Ricci": 18, "Ally Baker": 15, "Faiza Haque": 63}, "2026-01": {"Faiza Haque": 98, "Kenny Kruger": 319, "Ally Baker": 103, "Curtis Kinoshita": 10, "Janice Ricci": 110, "Cheryl De La Rosa": 32}, "2026-02": {"Kenny Kruger": 448, "Faiza Haque": 97, "Janice Ricci": 18, "Ally Baker": 27, "Other": 4, "Curtis Kinoshita": 3}, "2026-03": {"Faiza Haque": 32, "Kenny Kruger": 516, "Ally Baker": 16, "Janice Ricci": 34, "Curtis Kinoshita": 11, "Other": 1}, "2026-04": {"Kenny Kruger": 404, "Faiza Haque": 56, "Ally Baker": 31, "Curtis Kinoshita": 4, "Janice Ricci": 70, "Cheryl De La Rosa": 3}, "2026-05": {"Kenny Kruger": 209, "Ally Baker": 31, "Faiza Haque": 208, "Curtis Kinoshita": 4, "Janice Ricci": 33, "Other": 2}, "2026-06": {"Kenny Kruger": 46, "Faiza Haque": 38, "Janice Ricci": 21, "Other": 2, "Curtis Kinoshita": 1}}, "monthly_by_cat": {"2023-01": {"Update Assets in SFDC": 161, "Update SFDC with Order": 9, "General IB Inquiry": 58, "Support Certificate Request": 283, "Array Configuration Verification": 25}, "2023-02": {"General IB Inquiry": 53, "Update Assets in SFDC": 143, "Support Certificate Request": 258, "Update SFDC with Order": 6, "Array Configuration Verification": 40}, "2023-03": {"Update Assets in SFDC": 174, "Array Configuration Verification": 53, "General IB Inquiry": 29, "Update SFDC with Order": 5, "Support Certificate Request": 232}, "2023-04": {"Update Assets in SFDC": 153, "Array Configuration Verification": 46, "General IB Inquiry": 46, "Update SFDC with Order": 6, "Support Certificate Request": 199}, "2023-05": {"Update Assets in SFDC": 150, "General IB Inquiry": 29, "Update SFDC with Order": 4, "Array Configuration Verification": 27, "Support Certificate Request": 259}, "2023-06": {"Update SFDC with Order": 6, "Array Configuration Verification": 47, "Update Assets in SFDC": 184, "Support Certificate Request": 244, "General IB Inquiry": 36}, "2023-07": {"Update Assets in SFDC": 190, "General IB Inquiry": 47, "Array Configuration Verification": 39, "Support Certificate Request": 233, "Update SFDC with Order": 7}, "2023-08": {"Update SFDC with Order": 4, "Array Configuration Verification": 38, "Update Assets in SFDC": 152, "Support Certificate Request": 308, "General IB Inquiry": 57}, "2023-09": {"Support Certificate Request": 206, "Update Assets in SFDC": 149, "Array Configuration Verification": 25, "General IB Inquiry": 34, "Update SFDC with Order": 5}, "2023-10": {"Support Certificate Request": 297, "Update Assets in SFDC": 127, "Array Configuration Verification": 32, "General IB Inquiry": 58, "Update SFDC with Order": 6}, "2023-11": {"General IB Inquiry": 47, "Array Configuration Verification": 19, "Update SFDC with Order": 8, "Update Assets in SFDC": 130, "Support Certificate Request": 316}, "2023-12": {"Update Assets in SFDC": 105, "Support Certificate Request": 323, "Array Configuration Verification": 16, "General IB Inquiry": 46, "Support Exception": 2, "Update SFDC with Order": 13}, "2024-01": {"Support Certificate Request": 362, "Update Assets in SFDC": 119, "General IB Inquiry": 52, "Support Exception": 2, "Array Configuration Verification": 22, "Update SFDC with Order": 7}, "2024-02": {"Update Assets in SFDC": 118, "Support Certificate Request": 306, "General IB Inquiry": 42, "Support Exception": 9, "Update SFDC with Order": 10, "Array Configuration Verification": 20}, "2024-03": {"Update Assets in SFDC": 157, "Update SFDC with Order": 11, "Support Exception": 3, "Support Certificate Request": 298, "General IB Inquiry": 51, "Array Configuration Verification": 15}, "2024-04": {"Update Assets in SFDC": 145, "General IB Inquiry": 39, "Support Certificate Request": 265, "Support Exception": 5, "Array Configuration Verification": 13, "Update SFDC with Order": 5}, "2024-05": {"Support Certificate Request": 291, "Update Assets in SFDC": 125, "General IB Inquiry": 32, "Array Configuration Verification": 20, "Support Exception": 4, "Update SFDC with Order": 5}, "2024-06": {"Update Assets in SFDC": 133, "Support Certificate Request": 321, "Support Exception": 6, "Array Configuration Verification": 18, "General IB Inquiry": 34, "Update SFDC with Order": 2}, "2024-07": {"General IB Inquiry": 44, "Update Assets in SFDC": 167, "Array Configuration Verification": 25, "Support Exception": 5, "Support Certificate Request": 266, "Update SFDC with Order": 4}, "2024-08": {"General IB Inquiry": 34, "Update Assets in SFDC": 139, "Array Configuration Verification": 16, "Update SFDC with Order": 1, "Support Certificate Request": 277, "Support Exception": 7}, "2024-09": {"Support Certificate Request": 255, "Update Assets in SFDC": 189, "General IB Inquiry": 25, "Support Exception": 6, "Array Configuration Verification": 17, "Update SFDC with Order": 6}, "2024-10": {"Support Certificate Request": 339, "Update Assets in SFDC": 166, "General IB Inquiry": 20, "Array Configuration Verification": 24, "Support Exception": 2, "Update SFDC with Order": 2}, "2024-11": {"Support Certificate Request": 296, "Update Assets in SFDC": 156, "Array Configuration Verification": 14, "General IB Inquiry": 31, "Support Exception": 9, "Update SFDC with Order": 3}, "2024-12": {"Update Assets in SFDC": 172, "General IB Inquiry": 43, "Support Exception": 7, "Support Certificate Request": 376, "Update SFDC with Order": 5, "Array Configuration Verification": 13}, "2025-01": {"General IB Inquiry": 26, "Support Certificate Request": 348, "Update Assets in SFDC": 163, "Update SFDC with Order": 14, "Array Configuration Verification": 19, "Support Exception": 6}, "2025-02": {"Support Certificate Request": 330, "Update Assets in SFDC": 146, "General IB Inquiry": 29, "Support Exception": 5, "Array Configuration Verification": 15, "Update SFDC with Order": 4}, "2025-03": {"Update Assets in SFDC": 182, "Support Certificate Request": 322, "Array Configuration Verification": 15, "General IB Inquiry": 41, "Update SFDC with Order": 3, "Support Exception": 7}, "2025-04": {"Update SFDC with Order": 8, "Support Certificate Request": 267, "Update Assets in SFDC": 152, "General IB Inquiry": 36, "Array Configuration Verification": 15, "Support Exception": 3}, "2025-05": {"Support Certificate Request": 281, "Support Exception": 10, "Update SFDC with Order": 4, "General IB Inquiry": 25, "Array Configuration Verification": 9, "Update Assets in SFDC": 169}, "2025-06": {"Update Assets in SFDC": 161, "Array Configuration Verification": 29, "General IB Inquiry": 21, "Support Certificate Request": 336, "Support Exception": 4, "Update SFDC with Order": 2, "Other": 1}, "2025-07": {"Update Assets in SFDC": 184, "General IB Inquiry": 54, "Support Exception": 3, "Array Configuration Verification": 24, "Support Certificate Request": 308, "Update SFDC with Order": 1}, "2025-08": {"Update Assets in SFDC": 161, "General IB Inquiry": 42, "Support Certificate Request": 292, "Array Configuration Verification": 25, "Support Exception": 5, "Update SFDC with Order": 2}, "2025-09": {"Update Assets in SFDC": 186, "General IB Inquiry": 57, "Array Configuration Verification": 34, "Support Certificate Request": 361, "Support Exception": 7, "Update SFDC with Order": 2}, "2025-10": {"Support Certificate Request": 339, "General IB Inquiry": 55, "Update Assets in SFDC": 168, "Update SFDC with Order": 4, "Array Configuration Verification": 29, "Support Exception": 2}, "2025-11": {"Support Certificate Request": 357, "Update Assets in SFDC": 206, "General IB Inquiry": 33, "Array Configuration Verification": 14, "Support Exception": 9}, "2025-12": {"Support Certificate Request": 417, "Update SFDC with Order": 3, "General IB Inquiry": 58, "Array Configuration Verification": 23, "Update Assets in SFDC": 105, "Support Exception": 18}, "2026-01": {"Support Certificate Request": 409, "Update Assets in SFDC": 164, "General IB Inquiry": 39, "Array Configuration Verification": 24, "Support Exception": 35, "Update SFDC with Order": 1}, "2026-02": {"Update Assets in SFDC": 134, "Support Certificate Request": 353, "Array Configuration Verification": 21, "Support Exception": 30, "General IB Inquiry": 54, "Update SFDC with Order": 5}, "2026-03": {"Support Certificate Request": 362, "Array Configuration Verification": 34, "Update Assets in SFDC": 125, "Support Exception": 34, "General IB Inquiry": 52, "Update SFDC with Order": 3}, "2026-04": {"Support Certificate Request": 323, "Support Exception": 33, "General IB Inquiry": 46, "Array Configuration Verification": 24, "Update Assets in SFDC": 138, "Update SFDC with Order": 4}, "2026-05": {"General IB Inquiry": 31, "Array Configuration Verification": 26, "Update Assets in SFDC": 103, "Update SFDC with Order": 7, "Support Certificate Request": 295, "Support Exception": 25}, "2026-06": {"Array Configuration Verification": 8, "Update Assets in SFDC": 24, "Support Certificate Request": 59, "Support Exception": 5, "General IB Inquiry": 11, "Other": 1}}, "user_cat": {"Kenny Kruger": {"Array Configuration Verification": 528, "Update Assets in SFDC": 3996, "Support Exception": 159, "General IB Inquiry": 1024, "Support Certificate Request": 7633, "Update SFDC with Order": 48, "Other": 1}, "Faiza Haque": {"Support Certificate Request": 990, "Update Assets in SFDC": 22, "General IB Inquiry": 1, "Array Configuration Verification": 1}, "Janice Ricci": {"Support Certificate Request": 472, "Update Assets in SFDC": 32, "Array Configuration Verification": 2, "General IB Inquiry": 2, "Support Exception": 1}, "Other": {"Other": 1, "General IB Inquiry": 16, "Support Certificate Request": 4, "Array Configuration Verification": 2, "Update Assets in SFDC": 10, "Support Exception": 2, "Update SFDC with Order": 1}, "Ally Baker": {"General IB Inquiry": 340, "Update SFDC with Order": 86, "Update Assets in SFDC": 1034, "Support Exception": 55, "Array Configuration Verification": 247, "Support Certificate Request": 1479}, "Curtis Kinoshita": {"Update Assets in SFDC": 340, "Array Configuration Verification": 75, "Support Exception": 84, "General IB Inquiry": 170, "Update SFDC with Order": 45, "Support Certificate Request": 170}, "Cheryl De La Rosa": {"Update Assets in SFDC": 837, "Support Exception": 7, "Update SFDC with Order": 27, "Support Certificate Request": 1704, "Array Configuration Verification": 157, "General IB Inquiry": 144}, "Sharon Cabrera": {"Support Certificate Request": 117, "Update Assets in SFDC": 4}}, "states": {"Closed": 21983, "New": 10, "Resolved": 20, "Work in Progress": 39, "On Hold": 10, "Cancelled": 8}, "total": 22070, "cat_sub": {"Update Assets in SFDC": {"Address Change": 1744, "Update Array Type": 74, "Asset Add to SFDC": 179, "Support Date Change": 1128, "Update ASP": 427, "Dark Site": 185, "Account to Account Transfer": 1346, "Update Array Name": 759, "Update Array Status": 220, "Update Software Version": 68, "Contact Information Change": 68, "NRSSD": 12, "Add Notation to Special Instructions": 2, "Support Exception": 63}, "Support Exception": {"Partner delays": 177, "Process / System issues": 24, "Customer decision delays": 32, "Renewal on hold due to large complex deal": 10, "Sales commitments": 44, "Renewals inaccurate info": 4, "Renewals did not send quote": 7, "EG1 Conversion / Trade-up opp": 8, "Product Defect": 2}, "General IB Inquiry": {"No action for IB": 753, "General Requests/Questions": 780, "Duplicate Request": 32}}, "cat_month_sub": {"Update Assets in SFDC": {"2026-06": {"Address Change": 7, "Update Array Type": 1, "Asset Add to SFDC": 1, "Support Date Change": 2, "Update ASP": 5, "Dark Site": 6, "Update Array Name": 1, "Update Array Status": 1}, "2026-05": {"Account to Account Transfer": 18, "Asset Add to SFDC": 4, "Address Change": 31, "Update ASP": 28, "Update Array Name": 9, "Update Software Version": 3, "Contact Information Change": 3, "Update Array Status": 2, "Dark Site": 2, "Support Date Change": 3}, "2026-03": {"Account to Account Transfer": 38, "Support Date Change": 13, "Address Change": 38, "Update Array Name": 8, "Update Array Status": 4, "Dark Site": 5, "Update Array Type": 4, "Update ASP": 11, "Asset Add to SFDC": 2, "Update Software Version": 2}, "2025-09": {"Address Change": 52, "Update Array Status": 6, "Dark Site": 7, "Asset Add to SFDC": 8, "Account to Account Transfer": 33, "Support Date Change": 46, "Update Software Version": 5, "Update ASP": 14, "Update Array Name": 11, "Contact Information Change": 1, "NRSSD": 1, "Update Array Type": 2}, "2026-04": {"Account to Account Transfer": 37, "Address Change": 49, "Support Date Change": 6, "Update ASP": 18, "Update Software Version": 4, "Update Array Name": 8, "Dark Site": 8, "Asset Add to SFDC": 3, "Update Array Status": 4, "Update Array Type": 1}, "2026-01": {"Support Date Change": 10, "Account to Account Transfer": 43, "Update Array Type": 6, "Update Array Name": 6, "Dark Site": 6, "Update Array Status": 16, "Address Change": 58, "Asset Add to SFDC": 3, "Update ASP": 6, "Contact Information Change": 6, "Update Software Version": 3, "NRSSD": 1}, "2026-02": {"Account to Account Transfer": 36, "Support Date Change": 13, "Address Change": 28, "Update Array Name": 18, "Update Software Version": 3, "Update Array Type": 6, "Update Array Status": 4, "Dark Site": 3, "Update ASP": 22, "Asset Add to SFDC": 1}, "2025-12": {"Asset Add to SFDC": 5, "Support Date Change": 19, "Account to Account Transfer": 27, "Address Change": 35, "Dark Site": 3, "Update Array Type": 1, "Update Array Status": 3, "Update ASP": 9, "Update Software Version": 2, "NRSSD": 1}, "2025-11": {"Support Date Change": 43, "Account to Account Transfer": 35, "Dark Site": 10, "Asset Add to SFDC": 3, "Address Change": 64, "Update Array Status": 6, "Update Array Type": 2, "Update ASP": 33, "Update Array Name": 3, "Update Software Version": 6, "Contact Information Change": 1}, "2025-10": {"Account to Account Transfer": 35, "Support Date Change": 39, "Address Change": 55, "Update ASP": 17, "Update Array Status": 5, "Update Array Name": 4, "Contact Information Change": 2, "Dark Site": 10, "Asset Add to SFDC": 1}, "2025-08": {"Account to Account Transfer": 30, "Asset Add to SFDC": 4, "Address Change": 40, "Support Date Change": 59, "Dark Site": 3, "Update Array Status": 2, "Update ASP": 12, "Update Array Name": 7, "Contact Information Change": 1, "Update Array Type": 1, "Update Software Version": 2}, "2025-07": {"Account to Account Transfer": 33, "Support Date Change": 50, "Update Array Name": 7, "Asset Add to SFDC": 4, "Update ASP": 13, "Address Change": 54, "Update Software Version": 9, "Update Array Status": 8, "Dark Site": 5, "Update Array Type": 1}, "2025-06": {"Address Change": 52, "Dark Site": 6, "Support Date Change": 29, "Update Array Type": 4, "Update Array Status": 8, "Account to Account Transfer": 41, "Update Array Name": 11, "Update ASP": 3, "Asset Add to SFDC": 5, "Contact Information Change": 1, "Update Software Version": 1}, "2025-03": {"Support Date Change": 56, "Update Array Name": 16, "Address Change": 41, "Asset Add to SFDC": 10, "Account to Account Transfer": 25, "Update Array Type": 1, "Dark Site": 3, "Update ASP": 15, "Update Array Status": 13, "Update Software Version": 2}, "2025-05": {"Support Date Change": 44, "Address Change": 38, "Account to Account Transfer": 37, "Update Array Name": 24, "Asset Add to SFDC": 7, "Update ASP": 5, "Update Array Type": 4, "Update Array Status": 3, "Update Software Version": 2, "Dark Site": 3, "Contact Information Change": 2}, "2025-04": {"Address Change": 40, "Support Date Change": 42, "Update Array Status": 9, "Account to Account Transfer": 30, "Update Array Name": 13, "Contact Information Change": 2, "Update ASP": 8, "Update Software Version": 2, "Asset Add to SFDC": 1, "Dark Site": 3, "Update Array Type": 2}, "2025-02": {"Support Date Change": 38, "Dark Site": 6, "Address Change": 35, "Account to Account Transfer": 35, "Asset Add to SFDC": 7, "NRSSD": 1, "Update Array Name": 10, "Update Array Status": 5, "Update Software Version": 3, "Update ASP": 3, "Update Array Type": 3}, "2024-03": {"Support Date Change": 39, "Address Change": 45, "Asset Add to SFDC": 4, "Account to Account Transfer": 27, "Update Array Name": 11, "Update Array Status": 8, "Update ASP": 10, "Contact Information Change": 1, "Dark Site": 6, "Update Array Type": 6}, "2024-12": {"Account to Account Transfer": 34, "Address Change": 53, "Support Date Change": 30, "Asset Add to SFDC": 8, "Update Array Status": 7, "Update Array Name": 24, "Update ASP": 10, "Dark Site": 5, "Contact Information Change": 1}, "2025-01": {"Account to Account Transfer": 24, "Address Change": 49, "Support Date Change": 27, "Update Array Status": 9, "Update Array Name": 20, "Asset Add to SFDC": 13, "Update ASP": 8, "Dark Site": 5, "Update Software Version": 5, "Update Array Type": 2, "Contact Information Change": 1}, "2024-06": {"Account to Account Transfer": 32, "Asset Add to SFDC": 3, "Address Change": 47, "Update Array Name": 11, "Dark Site": 5, "Update Array Status": 3, "Support Date Change": 20, "Update ASP": 8, "Update Array Type": 3, "NRSSD": 1}, "2024-11": {"Address Change": 41, "Update Array Name": 18, "Account to Account Transfer": 25, "Update Array Status": 7, "Asset Add to SFDC": 8, "Support Date Change": 32, "Dark Site": 4, "Update ASP": 15, "Update Array Type": 4, "NRSSD": 1, "Contact Information Change": 1}, "2024-10": {"Address Change": 44, "Support Date Change": 29, "Update Array Status": 10, "Account to Account Transfer": 37, "Asset Add to SFDC": 13, "Update Array Name": 24, "Dark Site": 3, "Update ASP": 5, "Update Software Version": 1}, "2023-12": {"Support Date Change": 12, "Account to Account Transfer": 23, "Contact Information Change": 2, "Update Array Name": 15, "Address Change": 35, "Dark Site": 2, "Update ASP": 9, "NRSSD": 2, "Support Exception": 2, "Update Array Type": 3}, "2024-09": {"Account to Account Transfer": 31, "Update Array Name": 53, "Support Date Change": 18, "Asset Add to SFDC": 10, "Dark Site": 4, "Update Array Status": 16, "Update ASP": 8, "Address Change": 48, "Update Array Type": 1}, "2024-08": {"Support Date Change": 15, "Address Change": 42, "Account to Account Transfer": 23, "Update Array Type": 1, "Update ASP": 8, "Update Array Name": 35, "Asset Add to SFDC": 7, "Update Array Status": 2, "Update Software Version": 4, "Add Notation to Special Instructions": 1, "Dark Site": 1}, "2024-07": {"Update Array Status": 14, "Asset Add to SFDC": 5, "Account to Account Transfer": 39, "Address Change": 47, "Support Date Change": 27, "Update Array Type": 3, "Update Array Name": 20, "Update ASP": 8, "Dark Site": 3, "Contact Information Change": 1}, "2024-05": {"Support Date Change": 27, "Account to Account Transfer": 31, "Update ASP": 10, "Address Change": 19, "Dark Site": 13, "Contact Information Change": 2, "Update Array Name": 10, "Update Array Status": 8, "Asset Add to SFDC": 2, "Update Array Type": 3}, "2024-04": {"Update ASP": 10, "Support Date Change": 27, "Dark Site": 7, "Account to Account Transfer": 38, "Update Array Name": 15, "Address Change": 40, "Update Array Type": 3, "Contact Information Change": 1, "Asset Add to SFDC": 1, "Update Array Status": 3}, "2024-02": {"Support Date Change": 19, "Update ASP": 8, "Account to Account Transfer": 30, "Dark Site": 3, "Address Change": 29, "Update Array Name": 19, "Update Array Status": 8, "Contact Information Change": 1, "Update Software Version": 1}, "2024-01": {"Support Date Change": 14, "Account to Account Transfer": 28, "Update Array Name": 34, "Asset Add to SFDC": 2, "Address Change": 30, "Dark Site": 2, "Update ASP": 6, "NRSSD": 1, "Update Array Status": 2}, "2023-11": {"Support Date Change": 20, "Account to Account Transfer": 34, "Support Exception": 8, "Update Array Name": 14, "Address Change": 39, "Update Array Status": 1, "Update ASP": 7, "Contact Information Change": 3, "Update Software Version": 1, "Dark Site": 2, "NRSSD": 1}, "2023-10": {"Support Date Change": 17, "Update Array Type": 2, "Support Exception": 6, "Address Change": 40, "Account to Account Transfer": 27, "Update ASP": 9, "Dark Site": 4, "Update Array Name": 14, "Update Array Status": 3, "Contact Information Change": 5}, "2023-09": {"Account to Account Transfer": 37, "Support Exception": 10, "Address Change": 37, "Support Date Change": 22, "Update Array Name": 26, "Update ASP": 8, "Update Array Status": 2, "Contact Information Change": 2, "Update Software Version": 2, "Asset Add to SFDC": 2, "Dark Site": 1}, "2023-08": {"Account to Account Transfer": 39, "Support Exception": 9, "Support Date Change": 22, "Update Array Name": 20, "Address Change": 34, "Update Array Status": 7, "Update ASP": 8, "Contact Information Change": 3, "Asset Add to SFDC": 6, "Dark Site": 2, "Update Software Version": 2}, "2023-07": {"Account to Account Transfer": 38, "Support Date Change": 23, "Add Notation to Special Instructions": 1, "Update Array Name": 38, "Update ASP": 9, "Support Exception": 6, "Address Change": 52, "Update Array Status": 5, "Dark Site": 8, "Asset Add to SFDC": 5, "Contact Information Change": 2, "Update Array Type": 2, "Update Software Version": 1}, "2023-06": {"Support Date Change": 19, "Update Array Status": 5, "Update ASP": 4, "Asset Add to SFDC": 9, "Address Change": 61, "Account to Account Transfer": 23, "Update Array Type": 1, "Support Exception": 7, "Update Array Name": 36, "Dark Site": 1, "Contact Information Change": 17, "NRSSD": 1}, "2023-05": {"Update Array Name": 30, "Account to Account Transfer": 34, "Support Date Change": 18, "Update ASP": 9, "Address Change": 45, "Support Exception": 9, "Asset Add to SFDC": 4, "Update Software Version": 1}, "2023-04": {"Support Date Change": 29, "Account to Account Transfer": 31, "Update ASP": 10, "Update Array Name": 32, "Address Change": 39, "Update Array Type": 1, "Contact Information Change": 2, "Support Exception": 6, "Update Array Status": 1, "Update Software Version": 1, "Dark Site": 1}, "2023-03": {"Account to Account Transfer": 36, "Support Date Change": 43, "Update Array Name": 33, "Address Change": 45, "Update ASP": 6, "Dark Site": 9, "Contact Information Change": 2}, "2023-02": {"Account to Account Transfer": 42, "Asset Add to SFDC": 2, "Support Date Change": 37, "Address Change": 33, "Update Array Name": 23, "Update ASP": 4, "NRSSD": 1, "Dark Site": 1}, "2023-01": {"Address Change": 33, "Account to Account Transfer": 50, "Support Date Change": 30, "Update Array Name": 28, "Asset Add to SFDC": 6, "Dark Site": 4, "Contact Information Change": 2, "Update ASP": 8}}, "Support Exception": {"2026-06": {"Partner delays": 5}, "2026-05": {"Partner delays": 21, "Process / System issues": 2, "Customer decision delays": 2}, "2026-04": {"Partner delays": 32, "Renewal on hold due to large complex deal": 1}, "2026-03": {"Partner delays": 27, "Process / System issues": 2, "Sales commitments": 1, "Customer decision delays": 4}, "2026-02": {"Process / System issues": 1, "Partner delays": 21, "Renewals inaccurate info": 1, "Customer decision delays": 7}, "2026-01": {"Partner delays": 28, "Process / System issues": 5, "Customer decision delays": 1, "Renewals did not send quote": 1}, "2025-12": {"Partner delays": 16, "Process / System issues": 1, "Customer decision delays": 1}, "2025-11": {"Partner delays": 7, "Customer decision delays": 1, "Sales commitments": 1}, "2025-09": {"Process / System issues": 2, "Partner delays": 3, "Renewal on hold due to large complex deal": 1, "Renewals inaccurate info": 1}, "2025-10": {"Sales commitments": 1, "Partner delays": 1}, "2025-08": {"Process / System issues": 1, "EG1 Conversion / Trade-up opp": 1, "Renewal on hold due to large complex deal": 1, "Partner delays": 2}, "2025-07": {"Sales commitments": 1, "Customer decision delays": 1, "Partner delays": 1}, "2025-05": {"Sales commitments": 1, "Partner delays": 2, "Customer decision delays": 3, "Renewal on hold due to large complex deal": 2, "Process / System issues": 2}, "2025-06": {"Sales commitments": 2, "Partner delays": 1, "Process / System issues": 1}, "2025-04": {"Renewal on hold due to large complex deal": 1, "Sales commitments": 1, "Customer decision delays": 1}, "2025-02": {"Renewals inaccurate info": 1, "Process / System issues": 1, "Sales commitments": 1, "Renewals did not send quote": 1, "Customer decision delays": 1}, "2025-03": {"Renewal on hold due to large complex deal": 2, "Process / System issues": 1, "Sales commitments": 3, "Partner delays": 1}, "2024-12": {"EG1 Conversion / Trade-up opp": 1, "Sales commitments": 1, "Partner delays": 3, "Customer decision delays": 2}, "2024-11": {"Sales commitments": 6, "Process / System issues": 2, "Customer decision delays": 1}, "2025-01": {"EG1 Conversion / Trade-up opp": 1, "Product Defect": 1, "Renewals did not send quote": 1, "Sales commitments": 1, "Customer decision delays": 1, "Partner delays": 1}, "2024-10": {"Renewal on hold due to large complex deal": 1, "Sales commitments": 1}, "2024-09": {"EG1 Conversion / Trade-up opp": 1, "Sales commitments": 3, "Customer decision delays": 1, "Renewals did not send quote": 1}, "2024-07": {"Sales commitments": 3, "EG1 Conversion / Trade-up opp": 1, "Partner delays": 1}, "2024-06": {"Sales commitments": 5, "Product Defect": 1}, "2024-08": {"Sales commitments": 6, "Partner delays": 1}, "2024-05": {"Sales commitments": 2, "Renewals inaccurate info": 1, "Partner delays": 1}, "2024-03": {"Renewals did not send quote": 1, "Customer decision delays": 1, "Sales commitments": 1}, "2024-04": {"Customer decision delays": 1, "EG1 Conversion / Trade-up opp": 1, "Process / System issues": 2, "Sales commitments": 1}, "2024-02": {"Customer decision delays": 2, "EG1 Conversion / Trade-up opp": 1, "Sales commitments": 2, "Renewals did not send quote": 2, "Partner delays": 1, "Process / System issues": 1}, "2024-01": {"Customer decision delays": 1, "EG1 Conversion / Trade-up opp": 1}, "2023-12": {"Partner delays": 1, "Renewal on hold due to large complex deal": 1}}, "General IB Inquiry": {"2026-06": {"No action for IB": 4, "General Requests/Questions": 7}, "2026-05": {"General Requests/Questions": 21, "No action for IB": 10}, "2026-04": {"General Requests/Questions": 35, "No action for IB": 11}, "2026-03": {"No action for IB": 27, "General Requests/Questions": 25}, "2026-01": {"General Requests/Questions": 17, "No action for IB": 22}, "2026-02": {"General Requests/Questions": 17, "No action for IB": 37}, "2025-12": {"Duplicate Request": 1, "General Requests/Questions": 27, "No action for IB": 30}, "2025-09": {"General Requests/Questions": 19, "No action for IB": 38}, "2025-11": {"General Requests/Questions": 12, "No action for IB": 20, "Duplicate Request": 1}, "2024-07": {"No action for IB": 15, "General Requests/Questions": 28, "Duplicate Request": 1}, "2025-10": {"General Requests/Questions": 19, "No action for IB": 36}, "2025-08": {"General Requests/Questions": 25, "No action for IB": 17}, "2025-07": {"General Requests/Questions": 17, "No action for IB": 37}, "2025-06": {"No action for IB": 13, "General Requests/Questions": 8}, "2025-05": {"General Requests/Questions": 17, "No action for IB": 8}, "2025-03": {"General Requests/Questions": 27, "No action for IB": 14}, "2025-02": {"General Requests/Questions": 23, "No action for IB": 6}, "2025-04": {"General Requests/Questions": 19, "No action for IB": 17}, "2025-01": {"General Requests/Questions": 18, "No action for IB": 8}, "2024-12": {"General Requests/Questions": 28, "No action for IB": 14, "Duplicate Request": 1}, "2024-11": {"No action for IB": 20, "General Requests/Questions": 10, "Duplicate Request": 1}, "2024-08": {"General Requests/Questions": 19, "No action for IB": 15}, "2024-10": {"General Requests/Questions": 13, "No action for IB": 7}, "2024-09": {"General Requests/Questions": 15, "No action for IB": 10}, "2024-06": {"General Requests/Questions": 20, "No action for IB": 14}, "2024-05": {"General Requests/Questions": 13, "No action for IB": 19}, "2024-04": {"General Requests/Questions": 11, "No action for IB": 28}, "2024-03": {"No action for IB": 29, "General Requests/Questions": 21, "Duplicate Request": 1}, "2024-02": {"General Requests/Questions": 21, "No action for IB": 21}, "2024-01": {"General Requests/Questions": 29, "No action for IB": 22, "Duplicate Request": 1}, "2023-11": {"General Requests/Questions": 23, "No action for IB": 21, "Duplicate Request": 3}, "2023-12": {"General Requests/Questions": 23, "No action for IB": 19, "Duplicate Request": 4}, "2023-10": {"General Requests/Questions": 18, "No action for IB": 36, "Duplicate Request": 4}, "2023-09": {"General Requests/Questions": 20, "No action for IB": 13, "Duplicate Request": 1}, "2023-08": {"General Requests/Questions": 26, "No action for IB": 26, "Duplicate Request": 5}, "2023-07": {"No action for IB": 11, "General Requests/Questions": 33, "Duplicate Request": 3}, "2023-06": {"No action for IB": 20, "General Requests/Questions": 13, "Duplicate Request": 3}, "2023-05": {"General Requests/Questions": 16, "No action for IB": 12, "Duplicate Request": 1}, "2023-04": {"General Requests/Questions": 20, "No action for IB": 22, "Duplicate Request": 1}, "2023-03": {"No action for IB": 1, "General Requests/Questions": 4}, "2023-02": {"No action for IB": 3, "General Requests/Questions": 3}}}};
+
+const COLORS = {
+  users: {'Kenny Kruger':'#6366f1','Faiza Haque':'#10b981','Ally Baker':'#f59e0b','Janice Ricci':'#f43f5e','Cheryl De La Rosa':'#8b5cf6','Curtis Kinoshita':'#06b6d4','Sharon Cabrera':'#ec4899','Other':'#475569'},
+  cats:  {'Support Certificate Request':'#6366f1','Update Assets in SFDC':'#10b981','General IB Inquiry':'#f59e0b','Array Configuration Verification':'#f43f5e','Support Exception':'#8b5cf6','Update SFDC with Order':'#06b6d4','Other':'#475569'},
+  subs:  ['#6366f1','#10b981','#f59e0b','#f43f5e','#8b5cf6','#06b6d4','#ec4899','#84cc16','#f97316','#14b8a6','#a78bfa','#fb923c']
+};
+const ALL_USERS = ['Kenny Kruger','Faiza Haque','Ally Baker','Janice Ricci','Cheryl De La Rosa','Curtis Kinoshita','Sharon Cabrera','Other'];
+const ALL_CATS  = ['Support Certificate Request','Update Assets in SFDC','General IB Inquiry','Array Configuration Verification','Support Exception','Update SFDC with Order','Other'];
+
+let monthlyMode = 'total';
+let monthlyChart, catChart, userChart, subTrendChart;
+let currentDrillKey = null;
+
+/* ---- helpers ---- */
+function getFilteredKeys() {
+  const year = document.getElementById('yearFilter').value;
+  return Object.keys(DATA.monthly).filter(k => year === 'all' || k.startsWith(year));
+}
+function fmtMonth(k) {
+  const [y,m] = k.split('-');
+  return ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][+m-1]+' '+y.slice(2);
+}
+function makeBars(containerId, entries, colorFn, clickFn) {
+  const max = Math.max(...entries.map(([,v])=>v), 1);
+  document.getElementById(containerId).innerHTML = entries.map(([label,val],i) => {
+    const pct = (val/max*100).toFixed(1);
+    const color = typeof colorFn === 'function' ? colorFn(label,i) : (colorFn[label]||'#475569');
+    const shortLabel = label.replace('Support Certificate Request','Cert Request').replace('Update Assets in SFDC','Update SFDC').replace('Array Configuration Verification','Array Config').replace('Update SFDC with Order','SFDC Order').replace('General IB Inquiry','IB Inquiry').replace('Support Exception','Exception').replace('Cheryl De La Rosa','Cheryl D.L.R.').replace('Renewal on hold due to large complex deal','Renewal on hold');
+    const clickAttr = clickFn ? `onclick="${clickFn}('${label.replace(/'/g,"\\'")}'); event.stopPropagation();" style="cursor:pointer"` : '';
+    return `<div class="month-bar" ${clickAttr} title="${label}">
+      <div class="month-bar-label">${shortLabel}</div>
+      <div class="month-bar-track"><div class="month-bar-fill" style="width:${pct}%;background:${color}"></div></div>
+      <div class="month-bar-count">${val}</div>
+    </div>`;
+  }).join('');
+}
+
+/* ---- KPIs ---- */
+function updateKPIs(keys) {
+  const total = keys.reduce((s,k)=>s+DATA.monthly[k],0);
+  document.getElementById('kpi-total').textContent = total.toLocaleString();
+  const ratio = total/22070;
+  const closed = Math.round(21983*ratio), open = Math.round(59*ratio);
+  document.getElementById('kpi-closed').textContent = closed.toLocaleString();
+  document.getElementById('kpi-closed-pct').textContent = ((closed/total)*100).toFixed(1)+'% closure rate';
+  document.getElementById('kpi-open').textContent = open.toLocaleString();
+  const userTotals = {};
+  ALL_USERS.forEach(u => { userTotals[u] = keys.reduce((s,k)=>s+(DATA.monthly_by_user[k]?.[u]||0),0); });
+  const topUser = Object.entries(userTotals).sort((a,b)=>b[1]-a[1])[0];
+  document.getElementById('kpi-top').textContent = topUser[0];
+  document.getElementById('kpi-top-count').textContent = topUser[1].toLocaleString()+' tickets ('+((topUser[1]/total)*100).toFixed(1)+'%)';
+}
+
+/* ---- Monthly chart ---- */
+function buildMonthlyChart(keys) {
+  const labels = keys.map(fmtMonth);
+  let datasets;
+  if (monthlyMode === 'total') {
+    datasets = [{ label:'Tickets', data:keys.map(k=>DATA.monthly[k]), backgroundColor:'#6366f1cc', borderColor:'#6366f1', borderWidth:2, borderRadius:4 }];
+  } else if (monthlyMode === 'byUser') {
+    datasets = ALL_USERS.map(u=>({ label:u, data:keys.map(k=>DATA.monthly_by_user[k]?.[u]||0), backgroundColor:COLORS.users[u]+'cc', borderColor:COLORS.users[u], borderWidth:1, borderRadius:2 }));
+  } else {
+    datasets = ALL_CATS.map(c=>({ label:c, data:keys.map(k=>DATA.monthly_by_cat[k]?.[c]||0), backgroundColor:COLORS.cats[c]+'cc', borderColor:COLORS.cats[c], borderWidth:1, borderRadius:2 }));
+  }
+  if (monthlyChart) monthlyChart.destroy();
+  monthlyChart = new Chart(document.getElementById('monthlyChart'), {
+    type:'bar', data:{ labels, datasets },
+    options:{ responsive:true, maintainAspectRatio:false,
+      plugins:{ legend:{ display:monthlyMode!=='total', labels:{ color:'#94a3b8', font:{size:11}, boxWidth:12, padding:12 } },
+        tooltip:{ callbacks:{ footer:()=>'Click to zoom in' } } },
+      onClick: onMonthClick,
+      scales:{ x:{ stacked:monthlyMode!=='total', ticks:{color:'#64748b',font:{size:11}}, grid:{color:'#1e293b'} },
+               y:{ stacked:monthlyMode!=='total', ticks:{color:'#64748b',font:{size:11}}, grid:{color:'#334155'} } }
+    }
+  });
+}
+
+/* ---- Category doughnut ---- */
+function buildCatChart(keys) {
+  const totals = {};
+  ALL_CATS.forEach(c=>{ totals[c]=keys.reduce((s,k)=>s+(DATA.monthly_by_cat[k]?.[c]||0),0); });
+  const sorted = Object.entries(totals).sort((a,b)=>b[1]-a[1]).filter(([,v])=>v>0);
+  if (catChart) catChart.destroy();
+  catChart = new Chart(document.getElementById('catChart'), {
+    type:'doughnut',
+    data:{ labels:sorted.map(([k])=>k), datasets:[{ data:sorted.map(([,v])=>v), backgroundColor:sorted.map(([k])=>COLORS.cats[k]||'#475569'), borderWidth:2, borderColor:'#0f1117' }] },
+    options:{ responsive:true, maintainAspectRatio:false,
+      plugins:{ legend:{ position:'right', labels:{ color:'#94a3b8', font:{size:11}, boxWidth:12, padding:8 } } },
+      onClick:(evt,elements)=>{ if(elements.length){ const cat=sorted[elements[0].index][0]; openSubPanel(cat, keys); } }
+    }
+  });
+}
+
+/* ---- User bar chart ---- */
+function buildUserChart(keys) {
+  const totals = {};
+  ALL_USERS.filter(u=>u!=='Other').forEach(u=>{ totals[u]=keys.reduce((s,k)=>s+(DATA.monthly_by_user[k]?.[u]||0),0); });
+  const sorted = Object.entries(totals).sort((a,b)=>b[1]-a[1]);
+  if (userChart) userChart.destroy();
+  userChart = new Chart(document.getElementById('userChart'), {
+    type:'bar',
+    data:{ labels:sorted.map(([k])=>k.split(' ')[0]), datasets:[{ label:'Tickets', data:sorted.map(([,v])=>v), backgroundColor:sorted.map(([k])=>COLORS.users[k]+'dd'), borderColor:sorted.map(([k])=>COLORS.users[k]), borderWidth:2, borderRadius:6 }] },
+    options:{ responsive:true, maintainAspectRatio:false, plugins:{ legend:{ display:false } },
+      scales:{ x:{ ticks:{color:'#94a3b8',font:{size:12}}, grid:{display:false} }, y:{ ticks:{color:'#64748b',font:{size:11}}, grid:{color:'#334155'} } }
+    }
+  });
+}
+
+/* ---- Heatmap ---- */
+function buildHeatmap() {
+  const maxVal = Math.max(...ALL_USERS.filter(u=>u!=='Other').flatMap(u=>ALL_CATS.map(c=>DATA.user_cat[u]?.[c]||0)));
+  const shortCat = c => c.replace('Support Certificate Request','Cert Req').replace('Update Assets in SFDC','Upd SFDC').replace('Array Configuration Verification','Array Config').replace('Update SFDC with Order','SFDC Ord').replace('General IB Inquiry','IB Inquiry').replace('Support Exception','Exception');
+  let html = '<thead><tr><th>Assignee</th>';
+  ALL_CATS.forEach(c=>{ html+=`<th style="text-align:right">${shortCat(c)}</th>`; });
+  html+='<th style="text-align:right">Total</th></tr></thead><tbody>';
+  ALL_USERS.filter(u=>u!=='Other').forEach(u=>{
+    const userTotal = ALL_CATS.reduce((s,c)=>s+(DATA.user_cat[u]?.[c]||0),0);
+    html+=`<tr><td class="user-cell">${u}</td>`;
+    ALL_CATS.forEach(c=>{
+      const v=DATA.user_cat[u]?.[c]||0;
+      const intensity=v/maxVal;
+      const color=v>0?`rgba(99,102,241,${intensity.toFixed(2)})`:'transparent';
+      const textColor=intensity>0.5?'#f1f5f9':'#94a3b8';
+      html+=`<td class="count-cell" style="background:${color};color:${textColor}">${v>0?v.toLocaleString():'—'}</td>`;
+    });
+    html+=`<td class="count-cell" style="color:#f1f5f9;font-weight:800">${userTotal.toLocaleString()}</td></tr>`;
+  });
+  html+='</tbody>';
+  document.getElementById('heatmapTable').innerHTML = html;
+}
+
+/* ---- Month drill-down ---- */
+function openDrill(key) {
+  if (!key) { closeDrill(); return; }
+  currentDrillKey = key;
+  const allKeys = Object.keys(DATA.monthly).sort();
+  const idx = allKeys.indexOf(key);
+  const total = DATA.monthly[key];
+  const prevKey = idx>0 ? allKeys[idx-1] : null;
+  const prevTotal = prevKey ? DATA.monthly[prevKey] : null;
+
+  document.getElementById('drillTitle').textContent = fmtMonth(key)+' — Detailed Breakdown';
+  document.getElementById('drillSubtitle').textContent = 'All tickets created in '+fmtMonth(key);
+  document.getElementById('drill-total').textContent = total.toLocaleString();
+
+  if (prevTotal!==null) {
+    const delta=total-prevTotal, sign=delta>=0?'+':'';
+    document.getElementById('drill-delta').textContent = sign+delta;
+    document.getElementById('drill-delta').style.color = delta>=0?'#10b981':'#f43f5e';
+    document.getElementById('drill-delta-sub').textContent = 'vs '+fmtMonth(prevKey)+' ('+prevTotal+')';
+  } else {
+    document.getElementById('drill-delta').textContent='—';
+    document.getElementById('drill-delta-sub').textContent='No prior month';
+  }
+
+  const userEntries = ALL_USERS.map(u=>[u,DATA.monthly_by_user[key]?.[u]||0]).filter(([,v])=>v>0).sort((a,b)=>b[1]-a[1]);
+  const top = userEntries[0];
+  document.getElementById('drill-top').textContent = top?top[0]:'—';
+  document.getElementById('drill-top-count').textContent = top?top[1]+' tickets ('+((top[1]/total)*100).toFixed(1)+'%)':'';
+
+  makeBars('drillUserBars', userEntries, COLORS.users);
+
+  const catEntries = ALL_CATS.map(c=>[c,DATA.monthly_by_cat[key]?.[c]||0]).filter(([,v])=>v>0).sort((a,b)=>b[1]-a[1]);
+  makeBars('drillCatBars', catEntries, COLORS.cats, 'drillOpenSub');
+
+  document.getElementById('drillSubSection').style.display='none';
+  document.getElementById('drillPanel').classList.add('visible');
+  document.getElementById('drillPanel').scrollIntoView({ behavior:'smooth', block:'start' });
+}
+
+function drillOpenSub(cat) {
+  const key = currentDrillKey;
+  const subData = DATA.cat_month_sub[cat]?.[key];
+  if (!subData || Object.keys(subData).length===0) {
+    document.getElementById('drillSubSection').style.display='none';
+    return;
+  }
+  const entries = Object.entries(subData).sort((a,b)=>b[1]-a[1]);
+  document.getElementById('drillSubTitle').textContent = '↳ '+cat+' subcategories';
+  makeBars('drillSubBars', entries, (lbl,i)=>COLORS.subs[i%COLORS.subs.length]);
+  document.getElementById('drillSubSection').style.display='block';
+}
+
+function closeDrill() {
+  document.getElementById('drillPanel').classList.remove('visible');
+  document.getElementById('monthPicker').value='';
+  currentDrillKey=null;
+}
+
+/* ---- Subcategory panel (from category chart click) ---- */
+function openSubPanel(cat, keys) {
+  const subData = DATA.cat_sub[cat];
+  if (!subData || Object.keys(subData).length===0) { closeSubPanel(); return; }
+
+  document.getElementById('subTitle').textContent = '📂 '+cat+' — Subcategory Breakdown';
+  const total = Object.values(subData).reduce((a,b)=>a+b,0);
+  document.getElementById('subNote').textContent = total.toLocaleString()+' tickets with subcategory data';
+
+  const sorted = Object.entries(subData).sort((a,b)=>b[1]-a[1]);
+  makeBars('subBarsList', sorted, (lbl,i)=>COLORS.subs[i%COLORS.subs.length]);
+
+  // Trend chart
+  const subNames = sorted.map(([k])=>k);
+  const filtKeys = keys || getFilteredKeys();
+  const labels = filtKeys.map(fmtMonth);
+  const datasets = subNames.slice(0,8).map((sub,i)=>({
+    label: sub,
+    data: filtKeys.map(k=>DATA.cat_month_sub[cat]?.[k]?.[sub]||0),
+    backgroundColor: COLORS.subs[i%COLORS.subs.length]+'cc',
+    borderColor: COLORS.subs[i%COLORS.subs.length],
+    borderWidth:1, borderRadius:2
+  }));
+
+  if (subTrendChart) subTrendChart.destroy();
+  subTrendChart = new Chart(document.getElementById('subTrendChart'),{
+    type:'bar', data:{ labels, datasets },
+    options:{ responsive:true, maintainAspectRatio:false,
+      plugins:{ legend:{ labels:{ color:'#94a3b8', font:{size:10}, boxWidth:10, padding:8 } } },
+      scales:{ x:{ stacked:true, ticks:{color:'#64748b',font:{size:10}}, grid:{color:'#1e293b'} },
+               y:{ stacked:true, ticks:{color:'#64748b',font:{size:10}}, grid:{color:'#334155'} } }
+    }
+  });
+
+  const panel = document.getElementById('subPanel');
+  panel.classList.add('visible');
+  panel.scrollIntoView({ behavior:'smooth', block:'start' });
+}
+
+function closeSubPanel() {
+  document.getElementById('subPanel').classList.remove('visible');
+}
+
+/* ---- Month bar click ---- */
+function onMonthClick(evt, elements) {
+  if (!elements.length) return;
+  const keys = getFilteredKeys();
+  const key = keys[elements[0].index];
+  if (key) { document.getElementById('monthPicker').value=key; openDrill(key); }
+}
+
+function setMonthlyMode(mode, el) {
+  monthlyMode = mode;
+  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+  el.classList.add('active');
+  buildMonthlyChart(getFilteredKeys());
+}
+
+function populateMonthPicker() {
+  const sel = document.getElementById('monthPicker');
+  Object.keys(DATA.monthly).sort().reverse().forEach(k=>{
+    const opt=document.createElement('option'); opt.value=k; opt.textContent=fmtMonth(k); sel.appendChild(opt);
+  });
+}
+
+function updateCharts() {
+  const keys = getFilteredKeys();
+  updateKPIs(keys);
+  buildMonthlyChart(keys);
+  buildCatChart(keys);
+  buildUserChart(keys);
+  buildHeatmap();
+  closeSubPanel();
+}
+
+/* ---- Time Worked ---- */
+const TW = {"cat":{"Array Configuration Verification":{"total_hrs":286.5,"avg_min":17.0,"count":1012},"Update Assets in SFDC":{"total_hrs":1191.6,"avg_min":11.4,"count":6275},"Support Certificate Request":{"total_hrs":1168.2,"avg_min":5.6,"count":12569},"Support Exception":{"total_hrs":40.0,"avg_min":7.8,"count":308},"General IB Inquiry":{"total_hrs":200.1,"avg_min":7.1,"count":1697},"Other":{"total_hrs":0.1,"avg_min":2.5,"count":2},"Update SFDC with Order":{"total_hrs":39.2,"avg_min":11.4,"count":207}},"sub":{"Update Assets in SFDC":{"Address Change":{"total_hrs":250.4,"avg_min":8.6,"count":1744},"Update Array Type":{"total_hrs":9.1,"avg_min":7.4,"count":74},"Asset Add to SFDC":{"total_hrs":48.0,"avg_min":16.1,"count":179},"Support Date Change":{"total_hrs":288.8,"avg_min":15.4,"count":1128},"Update ASP":{"total_hrs":72.9,"avg_min":10.2,"count":427},"Dark Site":{"total_hrs":38.1,"avg_min":12.4,"count":185},"Account to Account Transfer":{"total_hrs":310.6,"avg_min":13.8,"count":1346},"Update Array Name":{"total_hrs":101.2,"avg_min":8.0,"count":759},"Update Array Status":{"total_hrs":36.4,"avg_min":9.9,"count":220},"Update Software Version":{"total_hrs":6.1,"avg_min":5.3,"count":68},"Contact Information Change":{"total_hrs":13.1,"avg_min":11.5,"count":68},"NRSSD":{"total_hrs":2.9,"avg_min":14.4,"count":12},"Add Notation to Special Instructions":{"total_hrs":0.3,"avg_min":8.6,"count":2},"Support Exception":{"total_hrs":13.7,"avg_min":13.1,"count":63}},"Support Exception":{"Partner delays":{"total_hrs":17.4,"avg_min":5.9,"count":177},"Process / System issues":{"total_hrs":2.9,"avg_min":7.3,"count":24},"Customer decision delays":{"total_hrs":4.6,"avg_min":8.6,"count":32},"Renewal on hold due to large complex deal":{"total_hrs":2.5,"avg_min":15.1,"count":10},"Sales commitments":{"total_hrs":7.0,"avg_min":9.5,"count":44},"Renewals inaccurate info":{"total_hrs":0.7,"avg_min":10.4,"count":4},"Renewals did not send quote":{"total_hrs":2.5,"avg_min":21.5,"count":7},"EG1 Conversion / Trade-up opp":{"total_hrs":2.2,"avg_min":16.7,"count":8},"Product Defect":{"total_hrs":0.1,"avg_min":4.4,"count":2}},"General IB Inquiry":{"No action for IB":{"total_hrs":39.2,"avg_min":3.1,"count":753},"General Requests/Questions":{"total_hrs":142.0,"avg_min":10.9,"count":780},"Duplicate Request":{"total_hrs":0.9,"avg_min":1.7,"count":32}}},"user":{"Kenny Kruger":{"total_hrs":1864.4,"avg_min":8.4,"count":13389},"Faiza Haque":{"total_hrs":134.1,"avg_min":7.9,"count":1014},"Janice Ricci":{"total_hrs":44.1,"avg_min":5.2,"count":509},"Other":{"total_hrs":2.3,"avg_min":3.9,"count":36},"Ally Baker":{"total_hrs":383.8,"avg_min":7.1,"count":3241},"Curtis Kinoshita":{"total_hrs":209.9,"avg_min":14.2,"count":884},"Cheryl De La Rosa":{"total_hrs":255.5,"avg_min":5.3,"count":2876},"Sharon Cabrera":{"total_hrs":31.6,"avg_min":15.7,"count":121}},"monthly_hrs":{"2023-01":63.9,"2023-02":59.6,"2023-03":60.0,"2023-04":56.3,"2023-05":54.6,"2023-06":77.5,"2023-07":72.3,"2023-08":65.7,"2023-09":55.3,"2023-10":56.9,"2023-11":57.0,"2023-12":56.6,"2024-01":72.3,"2024-02":63.7,"2024-03":114.3,"2024-04":69.5,"2024-05":77.0,"2024-06":72.0,"2024-07":74.2,"2024-08":66.6,"2024-09":67.6,"2024-10":77.6,"2024-11":85.5,"2024-12":95.8,"2025-01":87.8,"2025-02":64.7,"2025-03":72.3,"2025-04":79.6,"2025-05":61.4,"2025-06":101.3,"2025-07":60.9,"2025-08":79.9,"2025-09":75.3,"2025-10":81.8,"2025-11":72.4,"2025-12":65.9,"2026-01":72.6,"2026-02":66.4,"2026-03":66.7,"2026-04":75.5,"2026-05":53.0,"2026-06":16.5}};
+
+let twMode = 'cat_hrs';
+let twChart = null;
+
+function setTWMode(mode, el) {
+  twMode = mode;
+  document.querySelectorAll('#twBars').forEach(()=>{});
+  el.closest('.tabs').querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+  el.classList.add('active');
+  buildTWSection();
+}
+
+function buildTWSection() {
+  const barSection = document.getElementById('twBarSection');
+  const chartSection = document.getElementById('twChartSection');
+  const subSection = document.getElementById('twSubSection');
+  subSection.style.display = 'none';
+
+  if (twMode === 'monthly') {
+    barSection.style.display = 'none';
+    chartSection.style.display = 'block';
+    buildTWChart();
+    return;
+  }
+  barSection.style.display = 'block';
+  chartSection.style.display = 'none';
+
+  if (twMode === 'cat_hrs') {
+    document.getElementById('twBarHint').textContent = 'Total hours logged · click a category to see subcategory breakdown';
+    const entries = Object.entries(TW.cat).filter(([k])=>k!=='Other').sort((a,b)=>b[1].total_hrs-a[1].total_hrs);
+    const max = Math.max(...entries.map(([,v])=>v.total_hrs));
+    document.getElementById('twBars').innerHTML = entries.map(([cat, v]) => {
+      const pct = (v.total_hrs/max*100).toFixed(1);
+      const color = COLORS.cats[cat]||'#475569';
+      const shortCat = cat.replace('Support Certificate Request','Cert Request').replace('Update Assets in SFDC','Update SFDC').replace('Array Configuration Verification','Array Config').replace('Update SFDC with Order','SFDC Order').replace('General IB Inquiry','IB Inquiry').replace('Support Exception','Exception');
+      const hasSub = TW.sub[cat];
+      return `<div class="month-bar" onclick="${hasSub?'openTWSub(\''+cat.replace(/'/g,"\\'")+'\')'  :'(void 0)'}" style="${hasSub?'cursor:pointer':''}" title="${cat}${hasSub?' — click for subcategories':''}">
+        <div class="month-bar-label">${shortCat}</div>
+        <div class="month-bar-track"><div class="month-bar-fill" style="width:${pct}%;background:${color}"></div></div>
+        <div class="month-bar-count" style="width:60px;font-size:11px">${v.total_hrs}h</div>
+      </div>`;
+    }).join('');
+  } else if (twMode === 'cat_avg') {
+    document.getElementById('twBarHint').textContent = 'Average minutes per ticket · click a category to see subcategory breakdown';
+    const entries = Object.entries(TW.cat).filter(([k])=>k!=='Other').sort((a,b)=>b[1].avg_min-a[1].avg_min);
+    const max = Math.max(...entries.map(([,v])=>v.avg_min));
+    document.getElementById('twBars').innerHTML = entries.map(([cat, v]) => {
+      const pct = (v.avg_min/max*100).toFixed(1);
+      const color = COLORS.cats[cat]||'#475569';
+      const shortCat = cat.replace('Support Certificate Request','Cert Request').replace('Update Assets in SFDC','Update SFDC').replace('Array Configuration Verification','Array Config').replace('Update SFDC with Order','SFDC Order').replace('General IB Inquiry','IB Inquiry').replace('Support Exception','Exception');
+      const hasSub = TW.sub[cat];
+      return `<div class="month-bar" onclick="${hasSub?'openTWSub(\''+cat.replace(/'/g,"\\'")+'\')'  :'(void 0)'}" style="${hasSub?'cursor:pointer':''}" title="${cat}${hasSub?' — click for subcategories':''}">
+        <div class="month-bar-label">${shortCat}</div>
+        <div class="month-bar-track"><div class="month-bar-fill" style="width:${pct}%;background:${color}"></div></div>
+        <div class="month-bar-count" style="width:60px;font-size:11px">${v.avg_min}m avg</div>
+      </div>`;
+    }).join('');
+  } else if (twMode === 'user_hrs') {
+    document.getElementById('twBarHint').textContent = 'Total hours logged per assignee';
+    const entries = Object.entries(TW.user).filter(([k])=>k!=='Other').sort((a,b)=>b[1].total_hrs-a[1].total_hrs);
+    const max = Math.max(...entries.map(([,v])=>v.total_hrs));
+    document.getElementById('twBars').innerHTML = entries.map(([user, v]) => {
+      const pct = (v.total_hrs/max*100).toFixed(1);
+      const color = COLORS.users[user]||'#475569';
+      return `<div class="month-bar" title="${user}">
+        <div class="month-bar-label">${user.split(' ')[0]}</div>
+        <div class="month-bar-track"><div class="month-bar-fill" style="width:${pct}%;background:${color}"></div></div>
+        <div class="month-bar-count" style="width:90px;font-size:11px">${v.total_hrs}h · ${v.avg_min}m avg</div>
+      </div>`;
+    }).join('');
+  }
+}
+
+function openTWSub(cat) {
+  const subData = TW.sub[cat];
+  if (!subData) return;
+  document.getElementById('twSubTitle').textContent = '↳ '+cat+' subcategories';
+  const entries = Object.entries(subData).sort((a,b)=>b[1].total_hrs-a[1].total_hrs);
+  const maxHrs = Math.max(...entries.map(([,v])=>v.total_hrs));
+  const maxAvg = Math.max(...entries.map(([,v])=>v.avg_min));
+  document.getElementById('twSubHrsBars').innerHTML = entries.map(([sub,v],i)=>{
+    const pct=(v.total_hrs/maxHrs*100).toFixed(1);
+    const color=COLORS.subs[i%COLORS.subs.length];
+    const short=sub.replace('Account to Account Transfer','Acct Transfer').replace('Renewal on hold due to large complex deal','Renewal on hold');
+    return `<div class="month-bar"><div class="month-bar-label" title="${sub}">${short}</div><div class="month-bar-track"><div class="month-bar-fill" style="width:${pct}%;background:${color}"></div></div><div class="month-bar-count" style="width:50px;font-size:11px">${v.total_hrs}h</div></div>`;
+  }).join('');
+  document.getElementById('twSubAvgBars').innerHTML = entries.map(([sub,v],i)=>{
+    const pct=(v.avg_min/maxAvg*100).toFixed(1);
+    const color=COLORS.subs[i%COLORS.subs.length];
+    const short=sub.replace('Account to Account Transfer','Acct Transfer').replace('Renewal on hold due to large complex deal','Renewal on hold');
+    return `<div class="month-bar"><div class="month-bar-label" title="${sub}">${short}</div><div class="month-bar-track"><div class="month-bar-fill" style="width:${pct}%;background:${color}"></div></div><div class="month-bar-count" style="width:50px;font-size:11px">${v.avg_min}m</div></div>`;
+  }).join('');
+  document.getElementById('twSubSection').style.display='block';
+}
+
+function buildTWChart() {
+  const keys = getFilteredKeys();
+  const labels = keys.map(fmtMonth);
+  const values = keys.map(k => TW.monthly_hrs[k] || 0);
+  if (twChart) twChart.destroy();
+  twChart = new Chart(document.getElementById('twChart'), {
+    type: 'line',
+    data: { labels, datasets:[{ label:'Hours worked', data:values, borderColor:'#10b981', backgroundColor:'#10b98122', fill:true, tension:0.3, pointBackgroundColor:'#10b981', pointRadius:4 }] },
+    options: { responsive:true, maintainAspectRatio:false,
+      plugins:{ legend:{ display:false } },
+      scales:{ x:{ ticks:{color:'#64748b',font:{size:11}}, grid:{color:'#1e293b'} }, y:{ ticks:{color:'#64748b',font:{size:11}}, grid:{color:'#334155'}, title:{display:true, text:'Hours', color:'#64748b', font:{size:11}} } }
+    }
+  });
+}
+
+Chart.defaults.color = '#94a3b8';
+populateMonthPicker();
+updateCharts();
+buildTWSection();
+</script>
+</body>
+</html>
