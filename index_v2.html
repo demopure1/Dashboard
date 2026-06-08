@@ -1,0 +1,628 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Install Base Team SNOW Dashboard — Fiscal Quarters</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #0f1117; color: #e2e8f0; min-height: 100vh; }
+  header { background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%); padding: 24px 32px; border-bottom: 1px solid #334155; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; }
+  header h1 { font-size: 22px; font-weight: 700; color: #f1f5f9; letter-spacing: -0.3px; }
+  header p { font-size: 13px; color: #64748b; margin-top: 3px; }
+  .filter-bar { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+  .filter-bar label { font-size: 13px; color: #94a3b8; }
+  select { background: #1e293b; border: 1px solid #334155; color: #e2e8f0; padding: 6px 12px; border-radius: 8px; font-size: 13px; cursor: pointer; }
+  select:focus { outline: none; border-color: #6366f1; }
+  .main { padding: 24px 32px; max-width: 1400px; margin: 0 auto; }
+  .kpi-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 24px; }
+  .kpi { background: #1e293b; border: 1px solid #334155; border-radius: 12px; padding: 20px 24px; position: relative; overflow: hidden; }
+  .kpi::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px; }
+  .kpi.blue::before { background: linear-gradient(90deg, #6366f1, #8b5cf6); }
+  .kpi.green::before { background: linear-gradient(90deg, #10b981, #34d399); }
+  .kpi.amber::before { background: linear-gradient(90deg, #f59e0b, #fbbf24); }
+  .kpi.rose::before { background: linear-gradient(90deg, #f43f5e, #fb7185); }
+  .kpi-label { font-size: 12px; color: #64748b; text-transform: uppercase; letter-spacing: 0.8px; font-weight: 600; margin-bottom: 8px; }
+  .kpi-value { font-size: 32px; font-weight: 800; color: #f1f5f9; line-height: 1; }
+  .kpi-sub { font-size: 12px; color: #94a3b8; margin-top: 6px; }
+  .card { background: #1e293b; border: 1px solid #334155; border-radius: 12px; padding: 20px 24px; margin-bottom: 20px; }
+  .card h2 { font-size: 14px; font-weight: 600; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.6px; margin-bottom: 16px; display: flex; align-items: center; gap: 8px; }
+  .chart-wrap { position: relative; height: 280px; }
+  .chart-wrap-tall { position: relative; height: 320px; }
+  .chart-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 20px; }
+  .chart-full { grid-column: 1 / -1; }
+  .tabs { display: flex; gap: 4px; margin-bottom: 16px; flex-wrap: wrap; }
+  .tab { padding: 6px 16px; border-radius: 8px; font-size: 13px; font-weight: 500; cursor: pointer; border: 1px solid transparent; color: #64748b; transition: all 0.15s; }
+  .tab.active { background: #334155; color: #e2e8f0; border-color: #475569; }
+  .tab:hover:not(.active) { color: #94a3b8; }
+  .month-bar { display: flex; align-items: center; gap: 10px; margin-bottom: 6px; }
+  .month-bar-label { font-size: 12px; color: #94a3b8; width: 150px; flex-shrink: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .month-bar-track { flex: 1; background: #334155; border-radius: 4px; height: 20px; overflow: hidden; }
+  .month-bar-fill { height: 100%; border-radius: 4px; transition: width 0.4s ease; }
+  .month-bar-count { font-size: 12px; color: #e2e8f0; font-weight: 600; width: 40px; text-align: right; }
+  .heatmap { width: 100%; border-collapse: collapse; font-size: 12px; }
+  .heatmap th { color: #64748b; font-weight: 600; padding: 8px 12px; text-align: left; border-bottom: 1px solid #334155; font-size: 11px; text-transform: uppercase; }
+  .heatmap td { padding: 10px 12px; border-bottom: 1px solid #1e293b; }
+  .heatmap tr:last-child td { border-bottom: none; }
+  .heatmap .user-cell { font-weight: 600; color: #e2e8f0; }
+  .heatmap .count-cell { text-align: right; border-radius: 6px; font-weight: 600; font-size: 13px; }
+  .heatmap tr:hover td { background: #273447; }
+  #drillPanel { display: none; background: #162032; border: 1px solid #6366f1; border-radius: 14px; padding: 24px; margin-bottom: 20px; }
+  #drillPanel.visible { display: block; }
+  .drill-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+  .drill-title { font-size: 18px; font-weight: 700; color: #f1f5f9; }
+  .drill-subtitle { font-size: 13px; color: #64748b; margin-top: 2px; }
+  .drill-close { background: #334155; border: none; color: #94a3b8; width: 28px; height: 28px; border-radius: 8px; cursor: pointer; font-size: 16px; display: flex; align-items: center; justify-content: center; }
+  .drill-close:hover { color: #f1f5f9; background: #475569; }
+  .drill-kpis { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 20px; }
+  .drill-kpi { background: #1e293b; border-radius: 10px; padding: 14px 18px; position: relative; overflow: hidden; }
+  .drill-kpi::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px; }
+  .drill-charts { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px; }
+  .drill-card { background: #1e293b; border-radius: 10px; padding: 16px 18px; }
+  .drill-card h3 { font-size: 12px; font-weight: 600; color: #64748b; text-transform: uppercase; letter-spacing: 0.6px; margin-bottom: 12px; }
+  #subPanel { display: none; background: #0f1d2e; border: 1px solid #10b981; border-radius: 14px; padding: 24px; margin-bottom: 20px; }
+  #subPanel.visible { display: block; }
+  .sub-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; }
+  .sub-title { font-size: 16px; font-weight: 700; color: #f1f5f9; }
+  .sub-note { font-size: 12px; color: #64748b; margin-bottom: 16px; }
+  .sub-close { background: #334155; border: none; color: #94a3b8; width: 28px; height: 28px; border-radius: 8px; cursor: pointer; font-size: 16px; display: flex; align-items: center; justify-content: center; }
+  .sub-close:hover { color: #f1f5f9; background: #475569; }
+  .sub-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .sub-card { background: #1e293b; border-radius: 10px; padding: 16px 18px; }
+  .sub-card h3 { font-size: 12px; font-weight: 600; color: #64748b; text-transform: uppercase; letter-spacing: 0.6px; margin-bottom: 12px; }
+  .sub-chart-wrap { position: relative; height: 240px; }
+  .badge { display: inline-block; background: #10b981; color: #fff; font-size: 10px; font-weight: 700; padding: 2px 8px; border-radius: 20px; text-transform: uppercase; letter-spacing: 0.5px; }
+  .fy-badge { display: inline-block; background: #6366f1; color: #fff; font-size: 10px; font-weight: 700; padding: 2px 8px; border-radius: 20px; margin-left: 6px; }
+  #quarterlyChart { cursor: pointer; }
+</style>
+</head>
+<body>
+
+<header>
+  <div>
+    <h1>📊 Install Base Team SNOW Dashboard <span class="fy-badge">Fiscal Quarter View</span></h1>
+    <p>ServiceNow tickets · FY2023 Q4 – FY2027 Q2 · 22,070 total · Pure Storage Fiscal Calendar</p>
+  </div>
+  <div class="filter-bar">
+    <label>Fiscal Year</label>
+    <select id="fyFilter" onchange="updateCharts()">
+      <option value="all">All Time</option>
+      <option value="FY2024">FY2024</option>
+      <option value="FY2025">FY2025</option>
+      <option value="FY2026">FY2026</option>
+      <option value="FY2027">FY2027</option>
+    </select>
+    <label style="margin-left:8px">Assignee</label>
+    <select id="userFilter" onchange="updateCharts()">
+      <option value="all">All Assignees</option>
+      <option value="Kenny Kruger">Kenny Kruger</option>
+      <option value="Faiza Haque">Faiza Haque</option>
+      <option value="Ally Baker">Ally Baker</option>
+      <option value="Janice Ricci">Janice Ricci</option>
+      <option value="Cheryl De La Rosa">Cheryl De La Rosa</option>
+      <option value="Curtis Kinoshita">Curtis Kinoshita</option>
+      <option value="Sharon Cabrera">Sharon Cabrera</option>
+    </select>
+    <label style="margin-left:8px">Zoom into quarter</label>
+    <select id="quarterPicker" onchange="openDrill(this.value)">
+      <option value="">— pick a quarter —</option>
+    </select>
+    <a href="index.html" style="margin-left:16px;font-size:13px;color:#6366f1;text-decoration:none;padding:6px 12px;border:1px solid #6366f1;border-radius:8px;">← Monthly View</a>
+  </div>
+</header>
+
+<div class="main">
+
+  <!-- Drill-down Panel -->
+  <div id="drillPanel">
+    <div class="drill-header">
+      <div>
+        <div class="drill-title" id="drillTitle"></div>
+        <div class="drill-subtitle" id="drillSubtitle"></div>
+      </div>
+      <button class="drill-close" onclick="closeDrill()">✕</button>
+    </div>
+    <div class="drill-kpis">
+      <div class="drill-kpi kpi blue"><div class="kpi-label">Total Tickets</div><div class="kpi-value" id="drill-total"></div></div>
+      <div class="drill-kpi kpi green"><div class="kpi-label">vs Prior Quarter</div><div class="kpi-value" id="drill-delta"></div><div class="kpi-sub" id="drill-delta-sub"></div></div>
+      <div class="drill-kpi kpi rose"><div class="kpi-label">Top Assignee</div><div class="kpi-value" style="font-size:16px;padding-top:6px" id="drill-top"></div><div class="kpi-sub" id="drill-top-count"></div></div>
+    </div>
+    <div class="drill-charts">
+      <div class="drill-card">
+        <h3>By Assignee</h3>
+        <div id="drillUserBars"></div>
+      </div>
+      <div class="drill-card">
+        <h3>By Category</h3>
+        <div id="drillCatBars"></div>
+      </div>
+    </div>
+    <div id="drillSubSection" style="display:none">
+      <div class="drill-card">
+        <h3 id="drillSubTitle"></h3>
+        <div id="drillSubBars"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Subcategory panel -->
+  <div id="subPanel">
+    <div class="sub-header">
+      <div class="sub-title" id="subTitle"></div>
+      <button class="sub-close" onclick="closeSubPanel()">✕</button>
+    </div>
+    <div class="sub-note" id="subNote"></div>
+    <div class="sub-grid">
+      <div class="sub-card"><h3>Total Tickets</h3><div id="subCountBars"></div></div>
+      <div class="sub-card"><h3>Avg Min / Ticket (All Time)</h3><div id="subAvgBars"></div></div>
+    </div>
+  </div>
+
+  <!-- KPIs -->
+  <div class="kpi-grid">
+    <div class="kpi blue"><div class="kpi-label">Total Tickets</div><div class="kpi-value" id="kpi-total">22,070</div><div class="kpi-sub" id="kpi-total-sub">FY2023 Q4 – FY2027 Q2</div></div>
+    <div class="kpi green"><div class="kpi-label">Closed</div><div class="kpi-value" id="kpi-closed">21,983</div><div class="kpi-sub" id="kpi-closed-pct">99.6% resolution rate</div></div>
+    <div class="kpi amber"><div class="kpi-label">Current Quarter</div><div class="kpi-value" id="kpi-current-q">FY27 Q2</div><div class="kpi-sub" id="kpi-current-count">580 tickets so far</div></div>
+    <div class="kpi rose"><div class="kpi-label">Top Assignee</div><div class="kpi-value" style="font-size:18px;padding-top:8px" id="kpi-top">Kenny Kruger</div><div class="kpi-sub" id="kpi-top-count">13,389 tickets</div></div>
+  </div>
+
+  <!-- Main quarterly chart -->
+  <div class="card chart-full">
+    <div class="tabs">
+      <div class="tab active" onclick="setMainMode('user', this)">By Assignee</div>
+      <div class="tab" onclick="setMainMode('cat', this)">By Category</div>
+      <div class="tab" onclick="setMainMode('total', this)">Total Only</div>
+    </div>
+    <div class="chart-wrap-tall"><canvas id="quarterlyChart"></canvas></div>
+  </div>
+
+  <div class="chart-grid">
+    <!-- By Assignee bars -->
+    <div class="card">
+      <h2>👤 Tickets by Assignee</h2>
+      <div id="userBars"></div>
+    </div>
+    <!-- By Category bars -->
+    <div class="card">
+      <h2>🏷 Tickets by Category</h2>
+      <div id="catBars"></div>
+    </div>
+  </div>
+
+  <!-- Heatmap -->
+  <div class="card">
+    <h2>🗂 Assignee × Category Heatmap</h2>
+    <div id="heatmapWrap"></div>
+  </div>
+
+  <!-- Time Worked -->
+  <div class="card">
+    <h2>⏱ Time Worked</h2>
+    <div class="tabs">
+      <div class="tab active" onclick="setTWMode('cat_hrs', this)">Total Hours by Category</div>
+      <div class="tab" onclick="setTWMode('cat_avg', this)">Avg Min/Ticket by Category</div>
+      <div class="tab" onclick="setTWMode('user_hrs', this)">Hours by Assignee</div>
+      <div class="tab" onclick="setTWMode('quarterly', this)">Quarterly Trend</div>
+    </div>
+    <p id="twBarHint" style="font-size:12px;color:#64748b;margin-bottom:12px"></p>
+    <div id="twBarSection">
+      <div id="twBars"></div>
+      <div id="twSubSection" style="display:none;margin-top:16px">
+        <p id="twSubTitle" style="font-size:13px;color:#94a3b8;margin-bottom:8px"></p>
+        <div class="sub-grid">
+          <div class="sub-card"><h3>Total Hours</h3><div id="twSubHrsBars"></div></div>
+          <div class="sub-card"><h3>Avg Min / Ticket</h3><div id="twSubAvgBars"></div></div>
+        </div>
+      </div>
+    </div>
+    <div id="twChartSection" style="display:none">
+      <div class="chart-wrap-tall"><canvas id="twChart"></canvas></div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+const DATA = {"quarterly":{"FY2023-Q4":632,"FY2024-Q1":1458,"FY2024-Q2":1499,"FY2024-Q3":1477,"FY2024-Q4":1581,"FY2025-Q1":1476,"FY2025-Q2":1496,"FY2025-Q3":1511,"FY2025-Q4":1692,"FY2026-Q1":1605,"FY2026-Q2":1613,"FY2026-Q3":1756,"FY2026-Q4":1915,"FY2027-Q1":1779,"FY2027-Q2":580},"quarterly_by_user":{"FY2023-Q4":{"Curtis Kinoshita":61,"Ally Baker":202,"Cheryl De La Rosa":358,"Kenny Kruger":11},"FY2024-Q1":{"Cheryl De La Rosa":886,"Curtis Kinoshita":71,"Kenny Kruger":314,"Ally Baker":186,"Other":1},"FY2024-Q2":{"Curtis Kinoshita":73,"Ally Baker":286,"Cheryl De La Rosa":798,"Kenny Kruger":341,"Other":1},"FY2024-Q3":{"Kenny Kruger":477,"Cheryl De La Rosa":241,"Ally Baker":680,"Curtis Kinoshita":76,"Other":3},"FY2024-Q4":{"Curtis Kinoshita":207,"Ally Baker":717,"Kenny Kruger":637,"Cheryl De La Rosa":19,"Other":1},"FY2025-Q1":{"Curtis Kinoshita":83,"Ally Baker":287,"Kenny Kruger":902,"Cheryl De La Rosa":37,"Sharon Cabrera":59,"Faiza Haque":56,"Janice Ricci":52},"FY2025-Q2":{"Kenny Kruger":1197,"Cheryl De La Rosa":35,"Curtis Kinoshita":63,"Ally Baker":138,"Other":4,"Sharon Cabrera":9,"Janice Ricci":35,"Faiza Haque":15},"FY2025-Q3":{"Kenny Kruger":1217,"Curtis Kinoshita":39,"Ally Baker":108,"Cheryl De La Rosa":93,"Other":2,"Sharon Cabrera":9,"Faiza Haque":16,"Janice Ricci":27},"FY2025-Q4":{"Other":8,"Ally Baker":230,"Kenny Kruger":1076,"Curtis Kinoshita":53,"Janice Ricci":46,"Cheryl De La Rosa":210,"Faiza Haque":25,"Sharon Cabrera":44},"FY2026-Q1":{"Kenny Kruger":1429,"Curtis Kinoshita":35,"Faiza Haque":13,"Ally Baker":87,"Other":2,"Janice Ricci":4,"Cheryl De La Rosa":35},"FY2026-Q2":{"Curtis Kinoshita":27,"Kenny Kruger":1383,"Cheryl De La Rosa":14,"Janice Ricci":17,"Faiza Haque":140,"Ally Baker":30,"Other":2},"FY2026-Q3":{"Kenny Kruger":1493,"Other":2,"Curtis Kinoshita":27,"Faiza Haque":95,"Ally Baker":66,"Cheryl De La Rosa":57,"Janice Ricci":16},"FY2026-Q4":{"Faiza Haque":223,"Kenny Kruger":1300,"Ally Baker":119,"Curtis Kinoshita":46,"Janice Ricci":136,"Cheryl De La Rosa":90,"Other":1},"FY2027-Q1":{"Faiza Haque":186,"Kenny Kruger":1370,"Ally Baker":74,"Curtis Kinoshita":18,"Janice Ricci":123,"Cheryl De La Rosa":3,"Other":5},"FY2027-Q2":{"Kenny Kruger":242,"Faiza Haque":245,"Janice Ricci":53,"Other":4,"Ally Baker":31,"Curtis Kinoshita":5}},"quarterly_by_cat":{"FY2023-Q4":{"Update Assets in SFDC":185,"General IB Inquiry":71,"Update SFDC with Order":10,"Support Certificate Request":340,"Array Configuration Verification":26},"FY2024-Q1":{"Update Assets in SFDC":478,"Array Configuration Verification":148,"General IB Inquiry":119,"Update SFDC with Order":17,"Support Certificate Request":696},"FY2024-Q2":{"Update SFDC with Order":17,"Update Assets in SFDC":524,"Support Certificate Request":733,"General IB Inquiry":115,"Array Configuration Verification":110},"FY2024-Q3":{"Support Certificate Request":807,"Array Configuration Verification":90,"Update Assets in SFDC":418,"Update SFDC with Order":14,"General IB Inquiry":148},"FY2024-Q4":{"Update Assets in SFDC":342,"Support Certificate Request":1002,"General IB Inquiry":145,"Support Exception":5,"Array Configuration Verification":57,"Update SFDC with Order":30},"FY2025-Q1":{"Update Assets in SFDC":425,"Update SFDC with Order":25,"General IB Inquiry":128,"Support Exception":16,"Support Certificate Request":834,"Array Configuration Verification":48},"FY2025-Q2":{"General IB Inquiry":112,"Support Certificate Request":876,"Update Assets in SFDC":420,"Array Configuration Verification":62,"Support Exception":16,"Update SFDC with Order":10},"FY2025-Q3":{"Support Certificate Request":865,"Update Assets in SFDC":491,"General IB Inquiry":76,"Array Configuration Verification":56,"Support Exception":14,"Update SFDC with Order":9},"FY2025-Q4":{"Update Assets in SFDC":493,"General IB Inquiry":99,"Support Certificate Request":1009,"Update SFDC with Order":22,"Array Configuration Verification":47,"Support Exception":22},"FY2026-Q1":{"Update Assets in SFDC":491,"Support Certificate Request":933,"Update SFDC with Order":15,"Array Configuration Verification":44,"General IB Inquiry":107,"Support Exception":15},"FY2026-Q2":{"Update Assets in SFDC":502,"General IB Inquiry":101,"Support Exception":18,"Array Configuration Verification":65,"Support Certificate Request":919,"Update SFDC with Order":7,"Other":1},"FY2026-Q3":{"Support Certificate Request":986,"Update Assets in SFDC":511,"General IB Inquiry":153,"Array Configuration Verification":85,"Update SFDC with Order":8,"Support Exception":13},"FY2026-Q4":{"Support Certificate Request":1188,"Update Assets in SFDC":471,"General IB Inquiry":129,"Array Configuration Verification":61,"Update SFDC with Order":4,"Support Exception":62},"FY2027-Q1":{"Support Certificate Request":1035,"Support Exception":100,"General IB Inquiry":152,"Array Configuration Verification":80,"Update Assets in SFDC":400,"Update SFDC with Order":12},"FY2027-Q2":{"Array Configuration Verification":33,"Update Assets in SFDC":124,"Support Certificate Request":346,"Support Exception":27,"General IB Inquiry":42,"Other":1,"Update SFDC with Order":7}},"user_cat":{"Kenny Kruger":{"Array Configuration Verification":528,"Update Assets in SFDC":3996,"Support Exception":159,"General IB Inquiry":1024,"Support Certificate Request":7633,"Update SFDC with Order":48,"Other":1},"Faiza Haque":{"Support Certificate Request":990,"Update Assets in SFDC":22,"General IB Inquiry":1,"Array Configuration Verification":1},"Janice Ricci":{"Support Certificate Request":472,"Update Assets in SFDC":32,"Array Configuration Verification":2,"General IB Inquiry":2,"Support Exception":1},"Other":{"Other":1,"General IB Inquiry":16,"Support Certificate Request":4,"Array Configuration Verification":2,"Update Assets in SFDC":10,"Support Exception":2,"Update SFDC with Order":1},"Ally Baker":{"General IB Inquiry":340,"Update SFDC with Order":86,"Update Assets in SFDC":1034,"Support Exception":55,"Array Configuration Verification":247,"Support Certificate Request":1479},"Curtis Kinoshita":{"Update Assets in SFDC":340,"Array Configuration Verification":75,"Support Exception":84,"General IB Inquiry":170,"Update SFDC with Order":45,"Support Certificate Request":170},"Cheryl De La Rosa":{"Update Assets in SFDC":837,"Support Exception":7,"Update SFDC with Order":27,"Support Certificate Request":1704,"Array Configuration Verification":157,"General IB Inquiry":144},"Sharon Cabrera":{"Support Certificate Request":117,"Update Assets in SFDC":4}},"states":{"Closed":21983,"New":10,"Resolved":20,"Work in Progress":39,"On Hold":10,"Cancelled":8},"total":22070,"cat_sub":{"Update Assets in SFDC":{"Address Change":1744,"Update Array Type":74,"Asset Add to SFDC":179,"Support Date Change":1128,"Update ASP":427,"Dark Site":185,"Account to Account Transfer":1346,"Update Array Name":759,"Update Array Status":220,"Update Software Version":68,"Contact Information Change":68,"NRSSD":12,"Add Notation to Special Instructions":2,"Support Exception":63},"Support Exception":{"Partner delays":177,"Process / System issues":24,"Customer decision delays":32,"Renewal on hold due to large complex deal":10,"Sales commitments":44,"Renewals inaccurate info":4,"Renewals did not send quote":7,"EG1 Conversion / Trade-up opp":8,"Product Defect":2},"General IB Inquiry":{"No action for IB":753,"General Requests/Questions":780,"Duplicate Request":32}},"cat_q_sub":{"Update Assets in SFDC":{"FY2027-Q2":{"Address Change":37,"Update Array Type":1,"Asset Add to SFDC":5,"Support Date Change":5,"Update ASP":33,"Dark Site":8,"Account to Account Transfer":17,"Update Array Name":9,"Update Array Status":3,"Update Software Version":3,"Contact Information Change":3},"FY2027-Q1":{"Account to Account Transfer":112,"Address Change":116,"Update Array Name":35,"Support Date Change":32,"Update ASP":51,"Update Software Version":9,"Dark Site":16,"Asset Add to SFDC":6,"Update Array Status":12,"Update Array Type":11},"FY2026-Q3":{"Address Change":147,"Account to Account Transfer":96,"Support Date Change":139,"Update ASP":46,"Update Array Status":13,"Dark Site":20,"Asset Add to SFDC":13,"Update Array Name":22,"Contact Information Change":4,"Update Software Version":7,"NRSSD":1,"Update Array Type":3},"FY2026-Q4":{"Support Date Change":71,"Account to Account Transfer":105,"Update Array Type":9,"Update Array Name":9,"Dark Site":19,"Update Array Status":25,"Asset Add to SFDC":11,"Address Change":157,"Update ASP":45,"Contact Information Change":7,"Update Software Version":11,"NRSSD":2},"FY2026-Q2":{"Account to Account Transfer":108,"Address Change":139,"Support Date Change":126,"Dark Site":14,"Update Array Name":38,"Asset Add to SFDC":15,"Update ASP":20,"Update Software Version":11,"Update Array Type":9,"Update Array Status":19,"Contact Information Change":3},"FY2026-Q1":{"Support Date Change":139,"Address Change":114,"Account to Account Transfer":93,"Update ASP":27,"Update Array Status":27,"Update Array Name":43,"Asset Add to SFDC":19,"Update Software Version":8,"Contact Information Change":2,"Dark Site":12,"Update Array Type":6,"NRSSD":1},"FY2025-Q1":{"Support Date Change":86,"Update Array Name":44,"Update ASP":27,"Dark Site":20,"Account to Account Transfer":98,"Address Change":112,"Asset Add to SFDC":6,"Update Array Status":19,"Update Array Type":9,"Contact Information Change":3,"Update Software Version":1},"FY2025-Q4":{"Account to Account Transfer":84,"Address Change":149,"Support Date Change":86,"Update Array Status":23,"Update Array Name":61,"Asset Add to SFDC":29,"Update ASP":33,"Dark Site":13,"Update Software Version":5,"Update Array Type":6,"Contact Information Change":3,"NRSSD":1},"FY2025-Q2":{"Account to Account Transfer":101,"Asset Add to SFDC":9,"Update Array Status":25,"Address Change":113,"Support Date Change":74,"Update Array Type":9,"Update Array Name":43,"Dark Site":17,"Update ASP":25,"Contact Information Change":3,"NRSSD":1},"FY2025-Q3":{"Address Change":133,"Support Date Change":63,"Update Array Status":28,"Account to Account Transfer":89,"Asset Add to SFDC":30,"Update Array Name":110,"Dark Site":9,"Update ASP":21,"Update Array Type":2,"Update Software Version":5,"Add Notation to Special Instructions":1},"FY2024-Q4":{"Support Date Change":43,"Account to Account Transfer":79,"Update Array Name":62,"Asset Add to SFDC":2,"Contact Information Change":5,"Update ASP":23,"Address Change":103,"Dark Site":6,"Support Exception":8,"NRSSD":4,"Update Array Status":3,"Update Array Type":3,"Update Software Version":1},"FY2024-Q3":{"Account to Account Transfer":104,"Support Date Change":64,"Update Array Name":51,"Update Array Type":2,"Support Exception":25,"Address Change":110,"Update ASP":23,"Dark Site":7,"Update Array Status":11,"Contact Information Change":10,"Update Software Version":4,"Asset Add to SFDC":7},"FY2024-Q2":{"Account to Account Transfer":96,"Update Array Name":111,"Support Exception":23,"Support Date Change":59,"Add Notation to Special Instructions":1,"Update ASP":18,"Update Array Status":11,"Asset Add to SFDC":19,"Address Change":153,"Update Array Type":3,"Dark Site":9,"Contact Information Change":19,"Update Software Version":1,"NRSSD":1},"FY2024-Q1":{"Support Date Change":102,"Account to Account Transfer":109,"Update ASP":26,"Address Change":123,"Asset Add to SFDC":2,"Update Array Name":89,"Support Exception":7,"Update Software Version":2,"Update Array Type":1,"Contact Information Change":4,"Update Array Status":1,"Dark Site":11,"NRSSD":1},"FY2023-Q4":{"Account to Account Transfer":55,"Address Change":38,"Update Array Name":32,"Support Date Change":39,"Asset Add to SFDC":6,"Update ASP":9,"Dark Site":4,"Contact Information Change":2}},"Support Exception":{"FY2027-Q2":{"Partner delays":23,"Process / System issues":2,"Customer decision delays":2},"FY2027-Q1":{"Partner delays":83,"Renewal on hold due to large complex deal":1,"Process / System issues":3,"Sales commitments":1,"Customer decision delays":11,"Renewals inaccurate info":1},"FY2026-Q4":{"Partner delays":51,"Process / System issues":6,"Customer decision delays":3,"Renewals did not send quote":1,"Sales commitments":1},"FY2026-Q3":{"Process / System issues":3,"Sales commitments":1,"Partner delays":5,"EG1 Conversion / Trade-up opp":1,"Renewal on hold due to large complex deal":2,"Renewals inaccurate info":1},"FY2026-Q2":{"Sales commitments":4,"Partner delays":5,"Customer decision delays":4,"Process / System issues":3,"Renewal on hold due to large complex deal":2},"FY2026-Q1":{"Renewal on hold due to large complex deal":3,"Renewals inaccurate info":1,"Sales commitments":5,"Process / System issues":2,"Customer decision delays":2,"Partner delays":1,"Renewals did not send quote":1},"FY2025-Q4":{"EG1 Conversion / Trade-up opp":2,"Sales commitments":8,"Partner delays":4,"Product Defect":1,"Renewals did not send quote":1,"Customer decision delays":4,"Process / System issues":2},"FY2025-Q3":{"Renewal on hold due to large complex deal":1,"Sales commitments":10,"EG1 Conversion / Trade-up opp":1,"Customer decision delays":1,"Renewals did not send quote":1},"FY2025-Q2":{"Sales commitments":10,"EG1 Conversion / Trade-up opp":1,"Partner delays":3,"Renewals inaccurate info":1,"Product Defect":1},"FY2025-Q1":{"Renewals did not send quote":3,"Customer decision delays":4,"EG1 Conversion / Trade-up opp":2,"Process / System issues":3,"Sales commitments":3,"Partner delays":1},"FY2024-Q4":{"Customer decision delays":1,"Sales commitments":1,"EG1 Conversion / Trade-up opp":1,"Partner delays":1,"Renewal on hold due to large complex deal":1}},"General IB Inquiry":{"FY2027-Q2":{"No action for IB":14,"General Requests/Questions":28},"FY2027-Q1":{"General Requests/Questions":77,"No action for IB":75},"FY2026-Q4":{"General Requests/Questions":56,"Duplicate Request":2,"No action for IB":71},"FY2026-Q3":{"General Requests/Questions":61,"No action for IB":92},"FY2025-Q2":{"No action for IB":48,"General Requests/Questions":63,"Duplicate Request":1},"FY2026-Q2":{"General Requests/Questions":43,"No action for IB":58},"FY2026-Q1":{"General Requests/Questions":70,"No action for IB":37},"FY2025-Q4":{"General Requests/Questions":55,"No action for IB":42,"Duplicate Request":2},"FY2025-Q3":{"General Requests/Questions":46,"No action for IB":30},"FY2025-Q1":{"General Requests/Questions":50,"No action for IB":77,"Duplicate Request":1},"FY2024-Q4":{"General Requests/Questions":75,"No action for IB":63,"Duplicate Request":7},"FY2024-Q3":{"General Requests/Questions":66,"No action for IB":73,"Duplicate Request":9},"FY2024-Q2":{"General Requests/Questions":60,"No action for IB":47,"Duplicate Request":8},"FY2024-Q1":{"General Requests/Questions":28,"No action for IB":25,"Duplicate Request":2},"FY2023-Q4":{"General Requests/Questions":2,"No action for IB":1}}}};
+const TW = {"cat":{"Array Configuration Verification":{"total_hrs":286.5,"avg_min":17.0,"count":1012},"Update Assets in SFDC":{"total_hrs":1191.6,"avg_min":11.4,"count":6275},"Support Certificate Request":{"total_hrs":1168.2,"avg_min":5.6,"count":12569},"Support Exception":{"total_hrs":40.0,"avg_min":7.8,"count":308},"General IB Inquiry":{"total_hrs":200.1,"avg_min":7.1,"count":1697},"Other":{"total_hrs":0.1,"avg_min":2.5,"count":2},"Update SFDC with Order":{"total_hrs":39.2,"avg_min":11.4,"count":207}},"sub":{"Update Assets in SFDC":{"Address Change":{"total_hrs":250.4,"avg_min":8.6,"count":1744},"Update Array Type":{"total_hrs":9.1,"avg_min":7.4,"count":74},"Asset Add to SFDC":{"total_hrs":48.0,"avg_min":16.1,"count":179},"Support Date Change":{"total_hrs":288.8,"avg_min":15.4,"count":1128},"Update ASP":{"total_hrs":72.9,"avg_min":10.2,"count":427},"Dark Site":{"total_hrs":38.1,"avg_min":12.4,"count":185},"Account to Account Transfer":{"total_hrs":310.6,"avg_min":13.8,"count":1346},"Update Array Name":{"total_hrs":101.2,"avg_min":8.0,"count":759},"Update Array Status":{"total_hrs":36.4,"avg_min":9.9,"count":220},"Update Software Version":{"total_hrs":6.1,"avg_min":5.3,"count":68},"Contact Information Change":{"total_hrs":13.1,"avg_min":11.5,"count":68},"NRSSD":{"total_hrs":2.9,"avg_min":14.4,"count":12},"Add Notation to Special Instructions":{"total_hrs":0.3,"avg_min":8.6,"count":2},"Support Exception":{"total_hrs":13.7,"avg_min":13.1,"count":63}},"Support Exception":{"Partner delays":{"total_hrs":17.4,"avg_min":5.9,"count":177},"Process / System issues":{"total_hrs":2.9,"avg_min":7.3,"count":24},"Customer decision delays":{"total_hrs":4.6,"avg_min":8.6,"count":32},"Renewal on hold due to large complex deal":{"total_hrs":2.5,"avg_min":15.1,"count":10},"Sales commitments":{"total_hrs":7.0,"avg_min":9.5,"count":44},"Renewals inaccurate info":{"total_hrs":0.7,"avg_min":10.4,"count":4},"Renewals did not send quote":{"total_hrs":2.5,"avg_min":21.5,"count":7},"EG1 Conversion / Trade-up opp":{"total_hrs":2.2,"avg_min":16.7,"count":8},"Product Defect":{"total_hrs":0.1,"avg_min":4.4,"count":2}},"General IB Inquiry":{"No action for IB":{"total_hrs":39.2,"avg_min":3.1,"count":753},"General Requests/Questions":{"total_hrs":142.0,"avg_min":10.9,"count":780},"Duplicate Request":{"total_hrs":0.9,"avg_min":1.7,"count":32}}},"user":{"Kenny Kruger":{"total_hrs":1864.4,"avg_min":8.4,"count":13389},"Faiza Haque":{"total_hrs":134.1,"avg_min":7.9,"count":1014},"Janice Ricci":{"total_hrs":44.1,"avg_min":5.2,"count":509},"Other":{"total_hrs":2.3,"avg_min":3.9,"count":36},"Ally Baker":{"total_hrs":383.8,"avg_min":7.1,"count":3241},"Curtis Kinoshita":{"total_hrs":209.9,"avg_min":14.2,"count":884},"Cheryl De La Rosa":{"total_hrs":255.5,"avg_min":5.3,"count":2876},"Sharon Cabrera":{"total_hrs":31.6,"avg_min":15.7,"count":121}},"quarterly_hrs":{"FY2023-Q4":77.5,"FY2024-Q1":173.1,"FY2024-Q2":205.1,"FY2024-Q3":178.0,"FY2024-Q4":182.6,"FY2025-Q1":245.6,"FY2025-Q2":225.2,"FY2025-Q3":208.8,"FY2025-Q4":266.7,"FY2026-Q1":218.3,"FY2026-Q2":225.8,"FY2026-Q3":231.0,"FY2026-Q4":210.1,"FY2027-Q1":209.4,"FY2027-Q2":68.6},"quarterly_cat":{"FY2023-Q4":{"Update Assets in SFDC":{"total_hrs":35.0,"avg_min":11.3,"count":185},"General IB Inquiry":{"total_hrs":10.9,"avg_min":9.2,"count":71},"Update SFDC with Order":{"total_hrs":2.0,"avg_min":11.9,"count":10},"Support Certificate Request":{"total_hrs":24.2,"avg_min":4.3,"count":340},"Array Configuration Verification":{"total_hrs":5.5,"avg_min":12.6,"count":26}},"FY2024-Q1":{"Update Assets in SFDC":{"total_hrs":68.7,"avg_min":8.6,"count":478},"Array Configuration Verification":{"total_hrs":33.7,"avg_min":13.7,"count":148},"General IB Inquiry":{"total_hrs":18.4,"avg_min":9.3,"count":119},"Update SFDC with Order":{"total_hrs":2.1,"avg_min":7.4,"count":17},"Support Certificate Request":{"total_hrs":50.1,"avg_min":4.3,"count":696}},"FY2024-Q2":{"Update SFDC with Order":{"total_hrs":3.6,"avg_min":12.6,"count":17},"Update Assets in SFDC":{"total_hrs":88.6,"avg_min":10.1,"count":524},"Support Certificate Request":{"total_hrs":51.1,"avg_min":4.2,"count":733},"General IB Inquiry":{"total_hrs":19.6,"avg_min":10.2,"count":115},"Array Configuration Verification":{"total_hrs":42.2,"avg_min":23.0,"count":110}},"FY2024-Q3":{"Support Certificate Request":{"total_hrs":55.1,"avg_min":4.1,"count":807},"Array Configuration Verification":{"total_hrs":25.1,"avg_min":16.7,"count":90},"Update Assets in SFDC":{"total_hrs":80.6,"avg_min":11.6,"count":418},"Update SFDC with Order":{"total_hrs":2.7,"avg_min":11.7,"count":14},"General IB Inquiry":{"total_hrs":14.5,"avg_min":5.9,"count":148}},"FY2024-Q4":{"Update Assets in SFDC":{"total_hrs":59.3,"avg_min":10.4,"count":342},"Support Certificate Request":{"total_hrs":83.8,"avg_min":5.0,"count":1002},"General IB Inquiry":{"total_hrs":15.8,"avg_min":6.5,"count":145},"Support Exception":{"total_hrs":0.3,"avg_min":3.4,"count":5},"Array Configuration Verification":{"total_hrs":14.9,"avg_min":15.7,"count":57},"Update SFDC with Order":{"total_hrs":8.6,"avg_min":17.2,"count":30}},"FY2025-Q1":{"Update Assets in SFDC":{"total_hrs":88.3,"avg_min":12.5,"count":425},"Update SFDC with Order":{"total_hrs":2.8,"avg_min":6.7,"count":25},"General IB Inquiry":{"total_hrs":11.7,"avg_min":5.5,"count":128},"Support Exception":{"total_hrs":3.1,"avg_min":11.6,"count":16},"Support Certificate Request":{"total_hrs":127.8,"avg_min":9.2,"count":834},"Array Configuration Verification":{"total_hrs":11.9,"avg_min":14.9,"count":48}},"FY2025-Q2":{"General IB Inquiry":{"total_hrs":12.9,"avg_min":6.9,"count":112},"Support Certificate Request":{"total_hrs":98.4,"avg_min":6.7,"count":876},"Update Assets in SFDC":{"total_hrs":97.0,"avg_min":13.8,"count":420},"Array Configuration Verification":{"total_hrs":13.0,"avg_min":12.6,"count":62},"Support Exception":{"total_hrs":2.8,"avg_min":10.3,"count":16},"Update SFDC with Order":{"total_hrs":1.1,"avg_min":6.9,"count":10}},"FY2025-Q3":{"Support Certificate Request":{"total_hrs":95.7,"avg_min":6.6,"count":865},"Update Assets in SFDC":{"total_hrs":80.0,"avg_min":9.8,"count":491},"General IB Inquiry":{"total_hrs":13.4,"avg_min":10.6,"count":76},"Array Configuration Verification":{"total_hrs":15.4,"avg_min":16.5,"count":56},"Support Exception":{"total_hrs":2.3,"avg_min":10.0,"count":14},"Update SFDC with Order":{"total_hrs":2.0,"avg_min":13.5,"count":9}},"FY2025-Q4":{"Update Assets in SFDC":{"total_hrs":97.9,"avg_min":11.9,"count":493},"General IB Inquiry":{"total_hrs":11.4,"avg_min":6.9,"count":99},"Support Certificate Request":{"total_hrs":126.9,"avg_min":7.5,"count":1009},"Update SFDC with Order":{"total_hrs":3.8,"avg_min":10.4,"count":22},"Array Configuration Verification":{"total_hrs":20.8,"avg_min":26.5,"count":47},"Support Exception":{"total_hrs":5.9,"avg_min":16.1,"count":22}},"FY2026-Q1":{"Update Assets in SFDC":{"total_hrs":101.7,"avg_min":12.4,"count":491},"Support Certificate Request":{"total_hrs":85.2,"avg_min":5.5,"count":933},"Update SFDC with Order":{"total_hrs":2.8,"avg_min":11.2,"count":15},"Array Configuration Verification":{"total_hrs":10.5,"avg_min":14.4,"count":44},"General IB Inquiry":{"total_hrs":13.2,"avg_min":7.4,"count":107},"Support Exception":{"total_hrs":4.8,"avg_min":19.0,"count":15}},"FY2026-Q2":{"Update Assets in SFDC":{"total_hrs":103.9,"avg_min":12.4,"count":502},"General IB Inquiry":{"total_hrs":6.3,"avg_min":3.7,"count":101},"Support Exception":{"total_hrs":4.1,"avg_min":13.5,"count":18},"Array Configuration Verification":{"total_hrs":18.7,"avg_min":17.3,"count":65},"Support Certificate Request":{"total_hrs":90.6,"avg_min":5.9,"count":919},"Update SFDC with Order":{"total_hrs":2.1,"avg_min":18.1,"count":7},"Other":{"total_hrs":0.1,"avg_min":4.9,"count":1}},"FY2026-Q3":{"Support Certificate Request":{"total_hrs":87.6,"avg_min":5.3,"count":986},"Update Assets in SFDC":{"total_hrs":98.5,"avg_min":11.6,"count":511},"General IB Inquiry":{"total_hrs":17.1,"avg_min":6.7,"count":153},"Array Configuration Verification":{"total_hrs":25.2,"avg_min":17.8,"count":85},"Update SFDC with Order":{"total_hrs":1.3,"avg_min":9.5,"count":8},"Support Exception":{"total_hrs":1.4,"avg_min":6.7,"count":13}},"FY2026-Q4":{"Support Certificate Request":{"total_hrs":88.7,"avg_min":4.5,"count":1188},"Update Assets in SFDC":{"total_hrs":86.6,"avg_min":11.0,"count":471},"General IB Inquiry":{"total_hrs":12.1,"avg_min":5.6,"count":129},"Array Configuration Verification":{"total_hrs":15.9,"avg_min":15.6,"count":61},"Update SFDC with Order":{"total_hrs":1.3,"avg_min":20.1,"count":4},"Support Exception":{"total_hrs":5.5,"avg_min":5.3,"count":62}},"FY2027-Q1":{"Support Certificate Request":{"total_hrs":79.6,"avg_min":4.6,"count":1035},"Support Exception":{"total_hrs":7.9,"avg_min":4.8,"count":100},"General IB Inquiry":{"total_hrs":18.4,"avg_min":7.3,"count":152},"Array Configuration Verification":{"total_hrs":23.4,"avg_min":17.6,"count":80},"Update Assets in SFDC":{"total_hrs":79.0,"avg_min":11.8,"count":400},"Update SFDC with Order":{"total_hrs":1.0,"avg_min":5.2,"count":12}},"FY2027-Q2":{"Array Configuration Verification":{"total_hrs":10.3,"avg_min":18.8,"count":33},"Update Assets in SFDC":{"total_hrs":26.7,"avg_min":12.9,"count":124},"Support Certificate Request":{"total_hrs":23.3,"avg_min":4.0,"count":346},"Support Exception":{"total_hrs":1.9,"avg_min":4.3,"count":27},"General IB Inquiry":{"total_hrs":4.5,"avg_min":6.4,"count":42},"Other":{"total_hrs":0.0,"avg_min":0.0,"count":1},"Update SFDC with Order":{"total_hrs":1.8,"avg_min":15.7,"count":7}}},"quarterly_user":{"FY2023-Q4":{"Curtis Kinoshita":{"total_hrs":14.6,"avg_min":14.4,"count":61},"Ally Baker":{"total_hrs":21.6,"avg_min":6.4,"count":202},"Cheryl De La Rosa":{"total_hrs":36.7,"avg_min":6.1,"count":358},"Kenny Kruger":{"total_hrs":4.6,"avg_min":25.3,"count":11}},"FY2024-Q1":{"Cheryl De La Rosa":{"total_hrs":82.4,"avg_min":5.6,"count":886},"Curtis Kinoshita":{"total_hrs":17.2,"avg_min":14.6,"count":71},"Kenny Kruger":{"total_hrs":49.7,"avg_min":9.5,"count":314},"Ally Baker":{"total_hrs":23.7,"avg_min":7.6,"count":186},"Other":{"total_hrs":0.0,"avg_min":0.7,"count":1}},"FY2024-Q2":{"Curtis Kinoshita":{"total_hrs":24.3,"avg_min":20.0,"count":73},"Ally Baker":{"total_hrs":41.6,"avg_min":8.7,"count":286},"Cheryl De La Rosa":{"total_hrs":80.5,"avg_min":6.1,"count":798},"Kenny Kruger":{"total_hrs":58.7,"avg_min":10.3,"count":341},"Other":{"total_hrs":0.0,"avg_min":0.1,"count":1}},"FY2024-Q3":{"Kenny Kruger":{"total_hrs":74.2,"avg_min":9.3,"count":477},"Cheryl De La Rosa":{"total_hrs":17.3,"avg_min":4.3,"count":241},"Ally Baker":{"total_hrs":70.7,"avg_min":6.2,"count":680},"Curtis Kinoshita":{"total_hrs":15.8,"avg_min":12.5,"count":76},"Other":{"total_hrs":0.1,"avg_min":1.4,"count":3}},"FY2024-Q4":{"Curtis Kinoshita":{"total_hrs":25.4,"avg_min":7.3,"count":207},"Ally Baker":{"total_hrs":63.9,"avg_min":5.3,"count":717},"Kenny Kruger":{"total_hrs":92.1,"avg_min":8.7,"count":637},"Cheryl De La Rosa":{"total_hrs":1.3,"avg_min":4.2,"count":19},"Other":{"total_hrs":0.0,"avg_min":0.5,"count":1}},"FY2025-Q1":{"Curtis Kinoshita":{"total_hrs":21.4,"avg_min":15.5,"count":83},"Ally Baker":{"total_hrs":19.7,"avg_min":4.1,"count":287},"Kenny Kruger":{"total_hrs":154.6,"avg_min":10.3,"count":902},"Cheryl De La Rosa":{"total_hrs":2.4,"avg_min":3.8,"count":37},"Sharon Cabrera":{"total_hrs":15.6,"avg_min":15.8,"count":59},"Faiza Haque":{"total_hrs":28.2,"avg_min":30.2,"count":56},"Janice Ricci":{"total_hrs":3.6,"avg_min":4.2,"count":52}},"FY2025-Q2":{"Kenny Kruger":{"total_hrs":178.7,"avg_min":9.0,"count":1197},"Cheryl De La Rosa":{"total_hrs":3.4,"avg_min":5.8,"count":35},"Curtis Kinoshita":{"total_hrs":18.7,"avg_min":17.8,"count":63},"Ally Baker":{"total_hrs":15.9,"avg_min":6.9,"count":138},"Other":{"total_hrs":0.3,"avg_min":4.9,"count":4},"Sharon Cabrera":{"total_hrs":1.5,"avg_min":10.0,"count":9},"Janice Ricci":{"total_hrs":2.6,"avg_min":4.4,"count":35},"Faiza Haque":{"total_hrs":4.1,"avg_min":16.4,"count":15}},"FY2025-Q3":{"Kenny Kruger":{"total_hrs":166.3,"avg_min":8.2,"count":1217},"Curtis Kinoshita":{"total_hrs":11.8,"avg_min":18.1,"count":39},"Ally Baker":{"total_hrs":20.7,"avg_min":11.5,"count":108},"Cheryl De La Rosa":{"total_hrs":4.4,"avg_min":2.8,"count":93},"Other":{"total_hrs":0.1,"avg_min":4.1,"count":2},"Sharon Cabrera":{"total_hrs":1.6,"avg_min":10.8,"count":9},"Faiza Haque":{"total_hrs":1.5,"avg_min":5.8,"count":16},"Janice Ricci":{"total_hrs":2.4,"avg_min":5.4,"count":27}},"FY2025-Q4":{"Other":{"total_hrs":1.3,"avg_min":10.0,"count":8},"Ally Baker":{"total_hrs":25.7,"avg_min":6.7,"count":230},"Kenny Kruger":{"total_hrs":178.0,"avg_min":9.9,"count":1076},"Curtis Kinoshita":{"total_hrs":23.4,"avg_min":26.5,"count":53},"Janice Ricci":{"total_hrs":5.6,"avg_min":7.3,"count":46},"Cheryl De La Rosa":{"total_hrs":14.5,"avg_min":4.1,"count":210},"Faiza Haque":{"total_hrs":5.2,"avg_min":12.6,"count":25},"Sharon Cabrera":{"total_hrs":12.9,"avg_min":17.6,"count":44}},"FY2026-Q1":{"Kenny Kruger":{"total_hrs":185.9,"avg_min":7.8,"count":1429},"Curtis Kinoshita":{"total_hrs":6.8,"avg_min":11.7,"count":35},"Faiza Haque":{"total_hrs":1.9,"avg_min":8.9,"count":13},"Ally Baker":{"total_hrs":21.7,"avg_min":15.0,"count":87},"Other":{"total_hrs":0.1,"avg_min":3.4,"count":2},"Janice Ricci":{"total_hrs":0.4,"avg_min":6.3,"count":4},"Cheryl De La Rosa":{"total_hrs":1.3,"avg_min":2.3,"count":35}},"FY2026-Q2":{"Curtis Kinoshita":{"total_hrs":6.1,"avg_min":13.5,"count":27},"Kenny Kruger":{"total_hrs":183.9,"avg_min":8.0,"count":1383},"Cheryl De La Rosa":{"total_hrs":3.1,"avg_min":13.3,"count":14},"Janice Ricci":{"total_hrs":1.5,"avg_min":5.4,"count":17},"Faiza Haque":{"total_hrs":23.0,"avg_min":9.8,"count":140},"Ally Baker":{"total_hrs":8.3,"avg_min":16.5,"count":30},"Other":{"total_hrs":0.0,"avg_min":0.3,"count":2}},"FY2026-Q3":{"Kenny Kruger":{"total_hrs":188.1,"avg_min":7.6,"count":1493},"Other":{"total_hrs":0.1,"avg_min":4.1,"count":2},"Curtis Kinoshita":{"total_hrs":8.8,"avg_min":19.6,"count":27},"Faiza Haque":{"total_hrs":15.5,"avg_min":9.8,"count":95},"Ally Baker":{"total_hrs":13.1,"avg_min":11.9,"count":66},"Cheryl De La Rosa":{"total_hrs":3.8,"avg_min":4.0,"count":57},"Janice Ricci":{"total_hrs":1.5,"avg_min":5.8,"count":16}},"FY2026-Q4":{"Faiza Haque":{"total_hrs":23.1,"avg_min":6.2,"count":223},"Kenny Kruger":{"total_hrs":142.0,"avg_min":6.6,"count":1300},"Ally Baker":{"total_hrs":18.3,"avg_min":9.2,"count":119},"Curtis Kinoshita":{"total_hrs":7.8,"avg_min":10.2,"count":46},"Janice Ricci":{"total_hrs":14.6,"avg_min":6.4,"count":136},"Cheryl De La Rosa":{"total_hrs":4.2,"avg_min":2.8,"count":90},"Other":{"total_hrs":0.1,"avg_min":3.4,"count":1}},"FY2027-Q1":{"Faiza Haque":{"total_hrs":11.7,"avg_min":3.8,"count":186},"Kenny Kruger":{"total_hrs":168.9,"avg_min":7.4,"count":1370},"Ally Baker":{"total_hrs":13.2,"avg_min":10.7,"count":74},"Curtis Kinoshita":{"total_hrs":5.7,"avg_min":18.8,"count":18},"Janice Ricci":{"total_hrs":9.6,"avg_min":4.7,"count":123},"Cheryl De La Rosa":{"total_hrs":0.2,"avg_min":3.6,"count":3},"Other":{"total_hrs":0.1,"avg_min":1.0,"count":5}},"FY2027-Q2":{"Kenny Kruger":{"total_hrs":38.6,"avg_min":9.6,"count":242},"Faiza Haque":{"total_hrs":19.7,"avg_min":4.8,"count":245},"Janice Ricci":{"total_hrs":2.3,"avg_min":2.6,"count":53},"Other":{"total_hrs":0.0,"avg_min":0.6,"count":4},"Ally Baker":{"total_hrs":5.8,"avg_min":11.2,"count":31},"Curtis Kinoshita":{"total_hrs":2.1,"avg_min":25.1,"count":5}}}};
+
+const COLORS = {
+  users: {
+    'Kenny Kruger':     '#6366f1',
+    'Faiza Haque':      '#f59e0b',
+    'Ally Baker':       '#10b981',
+    'Janice Ricci':     '#3b82f6',
+    'Cheryl De La Rosa':'#8b5cf6',
+    'Curtis Kinoshita': '#06b6d4',
+    'Sharon Cabrera':   '#ec4899',
+    'Other':            '#475569',
+  },
+  cats: {
+    'Support Certificate Request': '#6366f1',
+    'Update Assets in SFDC':       '#10b981',
+    'General IB Inquiry':          '#f59e0b',
+    'Array Configuration Verification': '#3b82f6',
+    'Support Exception':           '#f43f5e',
+    'Update SFDC with Order':      '#8b5cf6',
+    'Other':                       '#475569',
+  },
+  subs: ['#6366f1','#10b981','#f59e0b','#3b82f6','#f43f5e','#8b5cf6','#06b6d4','#ec4899','#84cc16','#fb923c'],
+};
+
+const ALL_USERS = ['Kenny Kruger','Faiza Haque','Ally Baker','Janice Ricci','Cheryl De La Rosa','Curtis Kinoshita','Sharon Cabrera','Other'];
+let mainMode = 'user';
+let twMode = 'cat_hrs';
+let currentDrillKey = null;
+let quarterlyChart = null, twChart = null;
+
+function fmtQ(k) {
+  // "FY2024-Q1" → "FY24 Q1"
+  const [fy, q] = k.split('-');
+  return fy.replace('FY20','FY') + ' ' + q;
+}
+
+function getFilteredUser() {
+  return document.getElementById('userFilter').value;
+}
+
+function getFilteredKeys() {
+  const fy = document.getElementById('fyFilter').value;
+  return Object.keys(DATA.quarterly).sort().filter(k => fy === 'all' || k.startsWith(fy));
+}
+
+function updateKPIs(keys) {
+  const filtUser = getFilteredUser();
+  const filtered_total = keys.reduce((s,k) => {
+    return s + (filtUser !== 'all' ? ((DATA.quarterly_by_user[k]||{})[filtUser]||0) : (DATA.quarterly[k]||0));
+  }, 0);
+  const ratio = filtered_total / 22070;
+  document.getElementById('kpi-total').textContent = filtered_total.toLocaleString();
+  document.getElementById('kpi-closed').textContent = Math.round(21983*ratio).toLocaleString();
+  document.getElementById('kpi-closed-pct').textContent = '99.6% resolution rate';
+  const span = keys.length ? fmtQ(keys[0]) + ' – ' + fmtQ(keys[keys.length-1]) : 'No data';
+  document.getElementById('kpi-total-sub').textContent = span;
+  // Update top assignee KPI
+  if (filtUser !== 'all') {
+    document.getElementById('kpi-top').textContent = filtUser;
+    document.getElementById('kpi-top').style.color = COLORS.users[filtUser]||'#f1f5f9';
+    document.getElementById('kpi-top-count').textContent = filtered_total.toLocaleString()+' tickets';
+  } else {
+    const userTotals = {};
+    ALL_USERS.filter(u=>u!=='Other').forEach(u=>{ userTotals[u]=keys.reduce((s,k)=>s+((DATA.quarterly_by_user[k]||{})[u]||0),0); });
+    const top = Object.entries(userTotals).sort((a,b)=>b[1]-a[1])[0];
+    document.getElementById('kpi-top').textContent = top?top[0]:'—';
+    document.getElementById('kpi-top').style.color = top?(COLORS.users[top[0]]||'#f1f5f9'):'#f1f5f9';
+    document.getElementById('kpi-top-count').textContent = top?top[1].toLocaleString()+' tickets':'';
+  }
+}
+
+function buildMainChart(keys) {
+  const labels = keys.map(fmtQ);
+  const ctx = document.getElementById('quarterlyChart').getContext('2d');
+  if (quarterlyChart) quarterlyChart.destroy();
+  const filtUser = getFilteredUser();
+  let datasets;
+  if (filtUser !== 'all') {
+    datasets = [{ label:filtUser, data: keys.map(k=>(DATA.quarterly_by_user[k]||{})[filtUser]||0), backgroundColor:(COLORS.users[filtUser]||'#6366f1')+'cc', borderColor:COLORS.users[filtUser]||'#6366f1', borderWidth:2, borderRadius:4 }];
+  } else if (mainMode === 'total') {
+    datasets = [{ label:'Tickets', data: keys.map(k=>DATA.quarterly[k]||0), backgroundColor:'#6366f1', borderRadius:4 }];
+  } else if (mainMode === 'user') {
+    datasets = ALL_USERS.map(u => ({
+      label: u, backgroundColor: COLORS.users[u]||'#475569',
+      data: keys.map(k => (DATA.quarterly_by_user[k]||{})[u]||0), borderRadius:2, stack:'s'
+    }));
+  } else {
+    const cats = Object.keys(COLORS.cats);
+    datasets = cats.map(c => ({
+      label: c, backgroundColor: COLORS.cats[c]||'#475569',
+      data: keys.map(k => (DATA.quarterly_by_cat[k]||{})[c]||0), borderRadius:2, stack:'s'
+    }));
+  }
+  quarterlyChart = new Chart(ctx, {
+    type:'bar',
+    data:{ labels, datasets },
+    options:{ responsive:true, maintainAspectRatio:false,
+      onClick:(e,els)=>{ if(els.length) { const k=keys[els[0].index]; document.getElementById('quarterPicker').value=k; openDrill(k); } },
+      plugins:{ legend:{ position:'bottom', labels:{ color:'#94a3b8', boxWidth:12, font:{size:11} } }, tooltip:{ mode:'index', intersect:false } },
+      scales:{ x:{ stacked:true, ticks:{color:'#64748b',font:{size:11}}, grid:{color:'#1e293b'} },
+               y:{ stacked:true, ticks:{color:'#64748b',font:{size:11}}, grid:{color:'#334155'} } }
+    }
+  });
+}
+
+function makeBars(containerId, entries, colorFn, clickFn) {
+  const max = Math.max(...entries.map(([,v])=>v), 1);
+  document.getElementById(containerId).innerHTML = entries.map(([label,val],i) => {
+    const pct = (val/max*100).toFixed(1);
+    const color = typeof colorFn === 'function' ? colorFn(label,i) : (colorFn[label]||'#475569');
+    const shortLabel = label.replace('Support Certificate Request','Cert Request').replace('Update Assets in SFDC','Update SFDC').replace('Array Configuration Verification','Array Config').replace('Update SFDC with Order','SFDC Order').replace('General IB Inquiry','IB Inquiry').replace('Support Exception','Exception').replace('Cheryl De La Rosa','Cheryl D.L.R.').replace('Renewal on hold due to large complex deal','Renewal on hold');
+    const clickAttr = clickFn ? `onclick="${clickFn}('${label.replace(/'/g,"\'")}'); event.stopPropagation();" style="cursor:pointer"` : '';
+    return `<div class="month-bar" ${clickAttr} title="${label}">
+      <div class="month-bar-label">${shortLabel}</div>
+      <div class="month-bar-track"><div class="month-bar-fill" style="width:${pct}%;background:${color}"></div></div>
+      <div class="month-bar-count">${val.toLocaleString()}</div>
+    </div>`;
+  }).join('');
+}
+
+function buildUserBars(keys) {
+  const filtUser = getFilteredUser();
+  const usersToShow = filtUser !== 'all' ? [filtUser] : ALL_USERS.filter(u=>u!=='Other');
+  const totals = {};
+  usersToShow.forEach(u => { totals[u] = keys.reduce((s,k) => s + ((DATA.quarterly_by_user[k]||{})[u]||0), 0); });
+  const entries = Object.entries(totals).filter(([,v])=>v>0).sort((a,b)=>b[1]-a[1]);
+  makeBars('userBars', entries, COLORS.users);
+}
+
+function buildCatBars(keys) {
+  const filtUser = getFilteredUser();
+  const totals = {};
+  if (filtUser !== 'all') {
+    Object.keys(COLORS.cats).forEach(c => { totals[c] = DATA.user_cat[filtUser]?.[c]||0; });
+  } else {
+    Object.keys(COLORS.cats).forEach(c => { totals[c] = keys.reduce((s,k) => s + ((DATA.quarterly_by_cat[k]||{})[c]||0), 0); });
+  }
+  const entries = Object.entries(totals).filter(([,v])=>v>0).sort((a,b)=>b[1]-a[1]);
+  makeBars('catBars', entries, COLORS.cats, 'openSubPanel');
+}
+
+function buildHeatmap(keys) {
+  const filtUser = getFilteredUser();
+  const cats = Object.keys(COLORS.cats).filter(c=>c!=='Other');
+  const usersForHeatmap = filtUser !== 'all' ? [filtUser] : ALL_USERS.filter(u=>u!=='Other');
+  const maxVal = Math.max(...usersForHeatmap.flatMap(u => cats.map(c => (DATA.user_cat[u]||{})[c]||0)));
+  let html = '<table class="heatmap"><thead><tr><th>Assignee</th>' + cats.map(c => `<th>${c.replace('Support Certificate Request','Cert Req').replace('Update Assets in SFDC','Update SFDC').replace('Array Configuration Verification','Array Config').replace('Update SFDC with Order','SFDC Order').replace('General IB Inquiry','IB Inquiry').replace('Support Exception','Exception')}</th>`).join('') + '<th>Total</th></tr></thead><tbody>';
+  usersForHeatmap.forEach(u => {
+    const rowTotal = cats.reduce((s,c) => s + ((DATA.user_cat[u]||{})[c]||0), 0);
+    if (!rowTotal) return;
+    html += `<tr><td class="user-cell" style="color:${COLORS.users[u]}">${u}</td>`;
+    cats.forEach(c => {
+      const v = (DATA.user_cat[u]||{})[c]||0;
+      const intensity = v/maxVal;
+      const bg = `rgba(99,102,241,${(intensity*0.7+0.05).toFixed(2)})`;
+      html += `<td class="count-cell" style="background:${bg}">${v||''}</td>`;
+    });
+    html += `<td class="count-cell" style="font-weight:700">${rowTotal.toLocaleString()}</td></tr>`;
+  });
+  html += '</tbody></table>';
+  document.getElementById('heatmapWrap').innerHTML = html;
+}
+
+function setMainMode(mode, el) {
+  mainMode = mode;
+  el.closest('.tabs').querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+  el.classList.add('active');
+  buildMainChart(getFilteredKeys());
+}
+
+function updateCharts() {
+  const keys = getFilteredKeys();
+  updateKPIs(keys);
+  buildMainChart(keys);
+  buildUserBars(keys);
+  buildCatBars(keys);
+  buildHeatmap(keys);
+  if (currentDrillKey) openDrill(currentDrillKey);
+  buildTWSection();
+}
+
+/* ---- Drill-down ---- */
+function openDrill(key) {
+  if (!key) { closeDrill(); return; }
+  currentDrillKey = key;
+  const filtUser = getFilteredUser();
+  const allKeys = Object.keys(DATA.quarterly).sort();
+  const idx = allKeys.indexOf(key);
+  const total = filtUser !== 'all'
+    ? ((DATA.quarterly_by_user[key]||{})[filtUser]||0)
+    : DATA.quarterly[key];
+  const prevKey = idx>0 ? allKeys[idx-1] : null;
+  const prevTotal = prevKey
+    ? (filtUser !== 'all' ? ((DATA.quarterly_by_user[prevKey]||{})[filtUser]||0) : DATA.quarterly[prevKey])
+    : null;
+
+  document.getElementById('drillTitle').textContent = fmtQ(key);
+  document.getElementById('drillSubtitle').textContent = (filtUser !== 'all' ? filtUser + ' · ' : '') + 'All tickets in ' + fmtQ(key);
+  document.getElementById('drill-total').textContent = total.toLocaleString();
+
+  if (prevTotal !== null) {
+    const diff = total - prevTotal;
+    document.getElementById('drill-delta').textContent = (diff>=0?'+':'')+diff;
+    document.getElementById('drill-delta').style.color = diff>=0?'#10b981':'#f43f5e';
+    document.getElementById('drill-delta-sub').textContent = 'vs ' + fmtQ(prevKey) + ' (' + prevTotal + ')';
+  } else {
+    document.getElementById('drill-delta').textContent = '—';
+    document.getElementById('drill-delta-sub').textContent = 'No prior quarter';
+  }
+
+  const userQ = DATA.quarterly_by_user[key]||{};
+  const usersForDrill = filtUser !== 'all' ? [filtUser] : ALL_USERS;
+  const userEntries = usersForDrill.map(u=>[u,userQ[u]||0]).filter(([,v])=>v>0).sort((a,b)=>b[1]-a[1]);
+  const topU = userEntries[0];
+  document.getElementById('drill-top').textContent = topU ? topU[0] : '—';
+  document.getElementById('drill-top').style.color = topU ? (COLORS.users[topU[0]]||'#f1f5f9') : '#f1f5f9';
+  document.getElementById('drill-top-count').textContent = topU&&total>0 ? topU[1]+' tickets ('+((topU[1]/total)*100).toFixed(1)+'%)' : '';
+
+  makeBars('drillUserBars', userEntries, COLORS.users);
+
+  const catQ = DATA.quarterly_by_cat[key]||{};
+  const catEntries = Object.entries(catQ).sort((a,b)=>b[1]-a[1]);
+  makeBars('drillCatBars', catEntries, COLORS.cats, 'openDrillSub');
+
+  document.getElementById('drillSubSection').style.display='none';
+  document.getElementById('drillPanel').classList.add('visible');
+  buildTWSection();
+}
+
+function openDrillSub(cat) {
+  const subData = DATA.cat_q_sub[cat];
+  if (!subData || !subData[currentDrillKey]) return;
+  const entries = Object.entries(subData[currentDrillKey]).sort((a,b)=>b[1]-a[1]);
+  if (!entries.length) return;
+  document.getElementById('drillSubTitle').textContent = '↳ ' + cat + ' subcategories';
+  makeBars('drillSubBars', entries, (lbl,i)=>COLORS.subs[i%COLORS.subs.length]);
+  document.getElementById('drillSubSection').style.display='block';
+}
+
+function closeDrill() {
+  document.getElementById('drillPanel').classList.remove('visible');
+  document.getElementById('quarterPicker').value='';
+  currentDrillKey = null;
+  buildTWSection();
+}
+
+/* ---- Subcategory panel ---- */
+function openSubPanel(cat) {
+  const subData = DATA.cat_sub[cat];
+  if (!subData) return;
+  document.getElementById('subTitle').textContent = cat + ' — Subcategories';
+  document.getElementById('subNote').textContent = 'All time · ' + Object.values(subData).reduce((s,v)=>s+v,0) + ' tickets with subcategories';
+  const entries = Object.entries(subData).sort((a,b)=>b[1]-a[1]);
+  makeBars('subCountBars', entries, (lbl,i)=>COLORS.subs[i%COLORS.subs.length]);
+  const twSubData = TW.sub[cat];
+  if (twSubData) {
+    const avgEntries = Object.entries(twSubData).sort((a,b)=>b[1].avg_min-a[1].avg_min).map(([s,v])=>[s,v.avg_min]);
+    makeBars('subAvgBars', avgEntries, (lbl,i)=>COLORS.subs[i%COLORS.subs.length]);
+  }
+  document.getElementById('subPanel').classList.add('visible');
+  document.getElementById('subPanel').scrollIntoView({behavior:'smooth',block:'nearest'});
+}
+function closeSubPanel() { document.getElementById('subPanel').classList.remove('visible'); }
+
+/* ---- Time Worked ---- */
+function setTWMode(mode, el) {
+  twMode = mode;
+  el.closest('.tabs').querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+  el.classList.add('active');
+  buildTWSection();
+}
+
+function buildTWSection() {
+  const barSection = document.getElementById('twBarSection');
+  const chartSection = document.getElementById('twChartSection');
+  const subSection = document.getElementById('twSubSection');
+  subSection.style.display = 'none';
+
+  if (twMode === 'quarterly') {
+    barSection.style.display = 'none';
+    chartSection.style.display = 'block';
+    buildTWChart();
+    return;
+  }
+  barSection.style.display = 'block';
+  chartSection.style.display = 'none';
+
+  const q = currentDrillKey;
+  const filtUser = getFilteredUser();
+  const qLabel = q ? ' — ' + fmtQ(q) : ' (All Time)';
+
+  if (twMode === 'cat_hrs') {
+    const catUserNote = filtUser !== 'all' ? ' · all assignees (no per-user cat breakdown)' : '';
+    document.getElementById('twBarHint').textContent = 'Total hours logged' + qLabel + catUserNote + (q ? '' : ' · click a category to see subcategory breakdown');
+    const catData = q ? (TW.quarterly_cat[q]||{}) : TW.cat;
+    const entries = Object.entries(catData).filter(([k])=>k!=='Other').sort((a,b)=>b[1].total_hrs-a[1].total_hrs);
+    if (!entries.length) { document.getElementById('twBars').innerHTML='<p style="color:#64748b;padding:12px">No data</p>'; return; }
+    const max = Math.max(...entries.map(([,v])=>v.total_hrs));
+    document.getElementById('twBars').innerHTML = entries.map(([cat,v]) => {
+      const pct=(v.total_hrs/max*100).toFixed(1), color=COLORS.cats[cat]||'#475569';
+      const short=cat.replace('Support Certificate Request','Cert Request').replace('Update Assets in SFDC','Update SFDC').replace('Array Configuration Verification','Array Config').replace('Update SFDC with Order','SFDC Order').replace('General IB Inquiry','IB Inquiry').replace('Support Exception','Exception');
+      const hasSub = !q && filtUser === 'all' && TW.sub[cat];
+      return `<div class="month-bar" data-cat="${cat}" onclick="${hasSub?'openTWSub(this.dataset.cat)':'(void 0)'}" style="${hasSub?'cursor:pointer':''}" title="${cat}">
+        <div class="month-bar-label">${short}</div>
+        <div class="month-bar-track"><div class="month-bar-fill" style="width:${pct}%;background:${color}"></div></div>
+        <div class="month-bar-count" style="width:60px;font-size:11px">${v.total_hrs}h</div>
+      </div>`;
+    }).join('');
+  } else if (twMode === 'cat_avg') {
+    const catUserNote = filtUser !== 'all' ? ' · all assignees (no per-user cat breakdown)' : '';
+    document.getElementById('twBarHint').textContent = 'Average minutes per ticket' + qLabel + catUserNote + (q ? '' : ' · click a category to see subcategory breakdown');
+    const catData = q ? (TW.quarterly_cat[q]||{}) : TW.cat;
+    const entries = Object.entries(catData).filter(([k])=>k!=='Other').sort((a,b)=>b[1].avg_min-a[1].avg_min);
+    if (!entries.length) { document.getElementById('twBars').innerHTML='<p style="color:#64748b;padding:12px">No data</p>'; return; }
+    const max = Math.max(...entries.map(([,v])=>v.avg_min));
+    document.getElementById('twBars').innerHTML = entries.map(([cat,v]) => {
+      const pct=(v.avg_min/max*100).toFixed(1), color=COLORS.cats[cat]||'#475569';
+      const short=cat.replace('Support Certificate Request','Cert Request').replace('Update Assets in SFDC','Update SFDC').replace('Array Configuration Verification','Array Config').replace('Update SFDC with Order','SFDC Order').replace('General IB Inquiry','IB Inquiry').replace('Support Exception','Exception');
+      const hasSub = !q && filtUser === 'all' && TW.sub[cat];
+      return `<div class="month-bar" data-cat="${cat}" onclick="${hasSub?'openTWSub(this.dataset.cat)':'(void 0)'}" style="${hasSub?'cursor:pointer':''}" title="${cat}">
+        <div class="month-bar-label">${short}</div>
+        <div class="month-bar-track"><div class="month-bar-fill" style="width:${pct}%;background:${color}"></div></div>
+        <div class="month-bar-count" style="width:60px;font-size:11px">${v.avg_min}m avg</div>
+      </div>`;
+    }).join('');
+  } else if (twMode === 'user_hrs') {
+    const userLabel = filtUser !== 'all' ? ' · ' + filtUser.split(' ')[0] : '';
+    document.getElementById('twBarHint').textContent = 'Total hours logged per assignee' + qLabel + userLabel;
+    const userData = q ? (TW.quarterly_user[q]||{}) : TW.user;
+    const allEntries = Object.entries(userData).filter(([k])=>k!=='Other').sort((a,b)=>b[1].total_hrs-a[1].total_hrs);
+    const entries = filtUser !== 'all' ? allEntries.filter(([u])=>u===filtUser) : allEntries;
+    if (!entries.length) { document.getElementById('twBars').innerHTML='<p style="color:#64748b;padding:12px">No data</p>'; return; }
+    const max = Math.max(...entries.map(([,v])=>v.total_hrs));
+    document.getElementById('twBars').innerHTML = entries.map(([user,v]) => {
+      const pct=(v.total_hrs/max*100).toFixed(1), color=COLORS.users[user]||'#475569';
+      return `<div class="month-bar" title="${user}">
+        <div class="month-bar-label">${user.split(' ')[0]}</div>
+        <div class="month-bar-track"><div class="month-bar-fill" style="width:${pct}%;background:${color}"></div></div>
+        <div class="month-bar-count" style="width:90px;font-size:11px">${v.total_hrs}h · ${v.avg_min}m avg</div>
+      </div>`;
+    }).join('');
+  }
+}
+
+function openTWSub(cat) {
+  const subData = TW.sub[cat];
+  if (!subData) return;
+  document.getElementById('twSubTitle').textContent = '↳ '+cat+' subcategories';
+  const entries = Object.entries(subData).sort((a,b)=>b[1].total_hrs-a[1].total_hrs);
+  const maxHrs = Math.max(...entries.map(([,v])=>v.total_hrs));
+  const maxAvg = Math.max(...entries.map(([,v])=>v.avg_min));
+  document.getElementById('twSubHrsBars').innerHTML = entries.map(([sub,v],i)=>{
+    const pct=(v.total_hrs/maxHrs*100).toFixed(1),color=COLORS.subs[i%COLORS.subs.length];
+    const short=sub.replace('Account to Account Transfer','Acct Transfer').replace('Renewal on hold due to large complex deal','Renewal on hold');
+    return `<div class="month-bar"><div class="month-bar-label" title="${sub}">${short}</div><div class="month-bar-track"><div class="month-bar-fill" style="width:${pct}%;background:${color}"></div></div><div class="month-bar-count" style="width:50px;font-size:11px">${v.total_hrs}h</div></div>`;
+  }).join('');
+  document.getElementById('twSubAvgBars').innerHTML = entries.map(([sub,v],i)=>{
+    const pct=(v.avg_min/maxAvg*100).toFixed(1),color=COLORS.subs[i%COLORS.subs.length];
+    const short=sub.replace('Account to Account Transfer','Acct Transfer').replace('Renewal on hold due to large complex deal','Renewal on hold');
+    return `<div class="month-bar"><div class="month-bar-label" title="${sub}">${short}</div><div class="month-bar-track"><div class="month-bar-fill" style="width:${pct}%;background:${color}"></div></div><div class="month-bar-count" style="width:50px;font-size:11px">${v.avg_min}m</div></div>`;
+  }).join('');
+  document.getElementById('twSubSection').style.display='block';
+}
+
+function buildTWChart() {
+  const keys = getFilteredKeys();
+  const labels = keys.map(fmtQ);
+  const filtUser = getFilteredUser();
+  const values = keys.map(k => {
+    if (filtUser !== 'all') {
+      return (TW.quarterly_user[k] && TW.quarterly_user[k][filtUser]) ? TW.quarterly_user[k][filtUser].total_hrs : 0;
+    }
+    return TW.quarterly_hrs[k] || 0;
+  }).map(v=>Math.round(v*10)/10);
+  if (twChart) twChart.destroy();
+  twChart = new Chart(document.getElementById('twChart'), {
+    type:'bar',
+    data:{ labels, datasets:[{ label:'Hours worked', data:values, backgroundColor:'#10b98188', borderColor:'#10b981', borderWidth:1, borderRadius:4 }] },
+    options:{ responsive:true, maintainAspectRatio:false,
+      plugins:{ legend:{display:false} },
+      scales:{ x:{ ticks:{color:'#64748b',font:{size:11}}, grid:{color:'#1e293b'} },
+               y:{ ticks:{color:'#64748b',font:{size:11}}, grid:{color:'#334155'}, title:{display:true,text:'Hours',color:'#64748b',font:{size:11}} } }
+    }
+  });
+}
+
+function populateQuarterPicker() {
+  const sel = document.getElementById('quarterPicker');
+  Object.keys(DATA.quarterly).sort().reverse().forEach(k=>{
+    const opt=document.createElement('option'); opt.value=k; opt.textContent=fmtQ(k); sel.appendChild(opt);
+  });
+}
+
+Chart.defaults.color = '#94a3b8';
+populateQuarterPicker();
+updateCharts();
+buildTWSection();
+</script>
+</body>
+</html>
